@@ -221,6 +221,31 @@ as $$
   );
 $$;
 
+-- Dönüş tipi veya imza değişen fonksiyonlar için önce kaldır
+drop function if exists public.admin_delete_note(uuid);
+drop function if exists public.admin_set_user(uuid, uuid, text, boolean);
+drop function if exists public.admin_list_notes(uuid);
+drop function if exists public.admin_list_users(uuid);
+drop function if exists public.delete_note(uuid, uuid);
+drop function if exists public.update_note(uuid, uuid, text, text);
+drop function if exists public.create_note(uuid, uuid, text, text);
+drop function if exists public.create_note(uuid, text, text);
+drop function if exists public.get_note(uuid, uuid);
+drop function if exists public.list_notes(uuid, uuid);
+drop function if exists public.list_notes(uuid);
+drop function if exists public.delete_section(uuid, uuid);
+drop function if exists public.update_section(uuid, uuid, text, int);
+drop function if exists public.create_section(uuid, uuid, text);
+drop function if exists public.list_sections(uuid, uuid);
+drop function if exists public.delete_notebook(uuid, uuid);
+drop function if exists public.update_notebook(uuid, uuid, text);
+drop function if exists public.create_notebook(uuid, text);
+drop function if exists public.list_notebooks(uuid);
+drop function if exists public.logout_user(uuid);
+drop function if exists public.restore_session(uuid);
+drop function if exists public.login_user(text, text);
+drop function if exists public.register_user(text, text);
+
 create or replace function public.register_user(p_email text, p_password text)
 returns json
 language plpgsql
