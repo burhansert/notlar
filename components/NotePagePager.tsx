@@ -44,11 +44,16 @@ type Props = {
 export function NotePagePager({ note }: Props) {
   const { width, height } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
+  const scrollXRef = useRef(0);
   const wheelLockRef = useRef(false);
+  const dragRef = useRef({ active: false, startX: 0, startScrollX: 0 });
+  const pagesRef = useRef<string[]>([]);
+  const widthRef = useRef(width);
   const [pagerHeight, setPagerHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(DEFAULT_TITLE_HEADER_HEIGHT);
   const [measuredPages, setMeasuredPages] = useState<string[] | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
+  const [dragging, setDragging] = useState(false);
 
   const content = note.content.trim() || 'Henüz içerik yok.';
   const bodyWidth = width - spacing.lg * 2 - spacing.md * 2;
@@ -77,11 +82,60 @@ export function NotePagePager({ note }: Props) {
   const pages = measuredPages ?? estimatedPages;
   const showPageCount = pages.length > 1;
 
+  pagesRef.current = pages;
+  widthRef.current = width;
+
   useEffect(() => {
     setMeasuredPages(null);
     setCurrentPage(0);
+    scrollXRef.current = 0;
     scrollRef.current?.scrollTo({ x: 0, animated: false });
   }, [layoutKey]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    function onMouseMove(event: MouseEvent) {
+      if (!dragRef.current.active) return;
+      event.preventDefault();
+
+      const pageWidth = widthRef.current;
+      const pageCount = pagesRef.current.length;
+      const maxOffset = Math.max(0, (pageCount - 1) * pageWidth);
+      const deltaX = event.clientX - dragRef.current.startX;
+      const nextX = Math.max(
+        0,
+        Math.min(dragRef.current.startScrollX - deltaX, maxOffset)
+      );
+
+      scrollRef.current?.scrollTo({ x: nextX, animated: false });
+      scrollXRef.current = nextX;
+      syncPageFromOffset(nextX);
+    }
+
+    function onMouseUp() {
+      if (!dragRef.current.active) return;
+      dragRef.current.active = false;
+      setDragging(false);
+
+      const pageWidth = widthRef.current;
+      const pageCount = pagesRef.current.length;
+      const nextPage = Math.min(
+        pageCount - 1,
+        Math.max(0, Math.round(scrollXRef.current / pageWidth))
+      );
+      scrollRef.current?.scrollTo({ x: nextPage * pageWidth, animated: true });
+      scrollXRef.current = nextPage * pageWidth;
+      setCurrentPage(nextPage);
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || pages.length <= 1) return;
@@ -126,11 +180,15 @@ export function NotePagePager({ note }: Props) {
   }
 
   function syncPageFromOffset(offsetX: number) {
-    const nextPage = Math.min(pages.length - 1, Math.max(0, Math.round(offsetX / width)));
+    const pageCount = pagesRef.current.length;
+    if (!pageCount) return;
+    const pageWidth = widthRef.current;
+    const nextPage = Math.min(pageCount - 1, Math.max(0, Math.round(offsetX / pageWidth)));
     setCurrentPage((prev) => (prev === nextPage ? prev : nextPage));
   }
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    scrollXRef.current = event.nativeEvent.contentOffset.x;
     syncPageFromOffset(event.nativeEvent.contentOffset.x);
   }
 
@@ -140,8 +198,25 @@ export function NotePagePager({ note }: Props) {
 
   function goToPage(page: number) {
     const nextPage = Math.min(pages.length - 1, Math.max(0, page));
-    scrollRef.current?.scrollTo({ x: nextPage * width, animated: true });
+    const offsetX = nextPage * width;
+    scrollRef.current?.scrollTo({ x: offsetX, animated: true });
+    scrollXRef.current = offsetX;
     setCurrentPage(nextPage);
+  }
+
+  function handleMouseDown(event: NativeSyntheticEvent<MouseEvent>) {
+    if (Platform.OS !== 'web' || pages.length <= 1) return;
+
+    const nativeEvent = event.nativeEvent as unknown as MouseEvent;
+    if (nativeEvent.button !== 0) return;
+
+    dragRef.current = {
+      active: true,
+      startX: nativeEvent.clientX,
+      startScrollX: scrollXRef.current,
+    };
+    setDragging(true);
+    window.getSelection()?.removeAllRanges();
   }
 
   function handleWheel(event: NativeSyntheticEvent<WheelEvent>) {
@@ -184,7 +259,9 @@ export function NotePagePager({ note }: Props) {
       <View
         style={styles.pagerWrap}
         onLayout={handlePagerLayout}
-        {...(Platform.OS === 'web' ? { onWheel: handleWheel } : {})}>
+        {...(Platform.OS === 'web'
+          ? { onWheel: handleWheel, onMouseDown: handleMouseDown }
+          : {})}>
         <View style={styles.measureLayer} pointerEvents="none">
           <NotePageHeaderMeasure note={note} width={width} onLayout={handleHeaderMeasure} />
           {canRender ? (
@@ -208,7 +285,12 @@ export function NotePagePager({ note }: Props) {
             onScroll={handleScroll}
             onScrollEndDrag={handleScrollEnd}
             onMomentumScrollEnd={handleScrollEnd}
-            style={[styles.pager, Platform.OS === 'web' && styles.pagerWeb, WEB_NO_SELECT]}
+            style={[
+              styles.pager,
+              Platform.OS === 'web' && styles.pagerWeb,
+              dragging && styles.pagerDragging,
+              WEB_NO_SELECT,
+            ]}
             contentContainerStyle={styles.pagerContent}>
             {pages.map((page, index) => (
               <NotePageContent
@@ -274,6 +356,9 @@ const styles = StyleSheet.create({
     cursor: 'grab',
     overscrollBehavior: 'contain',
     scrollSnapType: 'x mandatory',
+  } as object,
+  pagerDragging: {
+    cursor: 'grabbing',
   } as object,
   pagerContent: {
     alignItems: 'stretch',
