@@ -16,9 +16,10 @@ import { createNote, deleteNote, getNote, updateNote } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
 export default function NoteEditorScreen() {
-  const { id, sectionId } = useLocalSearchParams<{
+  const { id, sectionId, notebookId } = useLocalSearchParams<{
     id: string;
     sectionId?: string;
+    notebookId?: string;
   }>();
   const router = useRouter();
   const { session } = useAuth();
@@ -54,15 +55,13 @@ export default function NoteEditorScreen() {
       return;
     }
 
-    if (isNew && !sectionId) {
-      Alert.alert('Bölüm seçilmedi', 'Not oluşturmak için bir bölüm açın.');
-      return;
-    }
-
     setSaving(true);
     try {
-      if (isNew && sectionId) {
-        await createNote(session.token, sectionId, title.trim(), content.trim());
+      if (isNew) {
+        await createNote(session.token, title.trim(), content.trim(), {
+          sectionId,
+          notebookId,
+        });
       } else if (id) {
         await updateNote(session.token, id, title.trim(), content.trim());
       }
