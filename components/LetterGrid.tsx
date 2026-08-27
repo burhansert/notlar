@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlyphSvg } from '@/components/GlyphSvg';
+import { glyphDisplayMetrics } from '@/lib/handwriting';
 import {
   HANDWRITING_CHARACTERS,
   HANDWRITING_DIGITS,
@@ -29,10 +30,18 @@ function GlyphPreview({
   strokes?: Stroke[];
   completed: boolean;
 }) {
+  const display = glyphDisplayMetrics(character, PREVIEW_SIZE);
+
   return (
     <View style={[styles.previewCell, completed ? styles.previewCellDone : null]}>
       {strokes && strokes.length > 0 ? (
-        <GlyphSvg strokes={strokes} size={PREVIEW_SIZE} />
+        <GlyphSvg
+          strokes={strokes}
+          size={display.height}
+          strokeWidth={display.strokeWidth}
+          minBBoxDim={display.minBBoxDim}
+          normalizeAnchor={display.normalizeAnchor}
+        />
       ) : (
         <Text style={styles.previewCharacter}>{character}</Text>
       )}

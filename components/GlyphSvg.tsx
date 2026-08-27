@@ -10,14 +10,20 @@ export function GlyphSvg({
   strokeColor = colors.handwritingInk,
   strokeWidth,
   normalize = true,
+  minBBoxDim = 0.12,
+  normalizeAnchor = 'center',
 }: {
   strokes: Stroke[];
   size: number;
   strokeColor?: string;
   strokeWidth?: number;
   normalize?: boolean;
+  minBBoxDim?: number;
+  normalizeAnchor?: 'center' | 'baseline';
 }) {
-  const paths = normalize ? normalizeStrokesToBounds(strokes) : strokes;
+  const paths = normalize
+    ? normalizeStrokesToBounds(strokes, 0.1, minBBoxDim, normalizeAnchor)
+    : strokes;
   const width = strokeWidth ?? strokeWidthForSize(size);
 
   return (

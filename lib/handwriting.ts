@@ -1,4 +1,8 @@
-import { resolveHandwritingCharacter, type HandwritingCharacter } from '@/constants/turkish-alphabet';
+import {
+  isHandwritingSymbol,
+  resolveHandwritingCharacter,
+  type HandwritingCharacter,
+} from '@/constants/turkish-alphabet';
 import type { HandwritingGlyph, Stroke, StrokePoint } from '@/lib/types';
 
 export const HANDWRITING_CANVAS_PADDING = 24;
@@ -40,7 +44,12 @@ function collectPoints(strokes: Stroke[]): StrokePoint[] {
   return strokes.flat();
 }
 
-export function normalizeStrokesToBounds(strokes: Stroke[], padding = 0.1): Stroke[] {
+export function normalizeStrokesToBounds(
+  strokes: Stroke[],
+  padding = 0.1,
+  minBBoxDim = 0.12,
+  anchor: 'center' | 'baseline' = 'center'
+): Stroke[] {
   const points = collectPoints(strokes);
   if (points.length === 0) return strokes;
 
@@ -56,13 +65,16 @@ export function normalizeStrokesToBounds(strokes: Stroke[], padding = 0.1): Stro
     maxY = Math.max(maxY, point.y);
   }
 
-  const bboxWidth = maxX - minX || 1;
-  const bboxHeight = maxY - minY || 1;
-  const maxDim = Math.max(bboxWidth, bboxHeight);
-  const inner = 1 - padding * 2;
-  const scale = inner / maxDim;
-  const offsetX = padding + (inner - bboxWidth * scale) / 2;
-  const offsetY = padding + (inner - bboxHeight * scale) / 2;
+  const bboxWidth = maxX - minX;
+  const bboxHeight = maxY - minY;
+  const maxDim = Math.max(bboxWidth, bboxHeight, minBBoxDim);
+  const paddingTop = anchor === 'baseline' ? padding * 0.35 : padding;
+  const paddingBottom = anchor === 'baseline' ? padding * 1.15 : padding;
+  const innerWidth = 1 - padding * 2;
+  const innerHeight = 1 - paddingTop - paddingBottom;
+  const scale = Math.min(innerWidth / Math.max(bboxWidth, minBBoxDim), innerHeight / Math.max(bboxHeight, minBBoxDim));
+  const offsetX = padding + (innerWidth - bboxWidth * scale) / 2;
+  const offsetY = paddingTop + (innerHeight - bboxHeight * scale) / 2;
 
   return strokes.map((stroke) =>
     stroke.map((point) => ({
@@ -70,6 +82,88 @@ export function normalizeStrokesToBounds(strokes: Stroke[], padding = 0.1): Stro
       y: offsetY + (point.y - minY) * scale,
     }))
   );
+}
+
+export type GlyphDisplayMetrics = {
+  width: number;
+  height: number;
+  strokeWidth?: number;
+  minBBoxDim: number;
+  baselineAlign: boolean;
+  normalizeAnchor: 'center' | 'baseline';
+};
+
+const TINY_PUNCTUATION = new Set<HandwritingCharacter>(['.', ',']);
+const BASELINE_PUNCTUATION = new Set<HandwritingCharacter>(['.', ',', ';', ':']);
+const COMPACT_PUNCTUATION = new Set<HandwritingCharacter>([
+  '!',
+  '?',
+  '"',
+  "'",
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+]);
+
+export function glyphDisplayMetrics(
+  character: HandwritingCharacter,
+  glyphSize: number
+): GlyphDisplayMetrics {
+  if (TINY_PUNCTUATION.has(character)) {
+    return {
+      width: Math.round(glyphSize * 0.26),
+      height: Math.round(glyphSize * 0.3),
+      strokeWidth: Math.max(1, glyphSize * 0.055),
+      minBBoxDim: 0.22,
+      baselineAlign: true,
+      normalizeAnchor: 'baseline',
+    };
+  }
+
+  if (BASELINE_PUNCTUATION.has(character)) {
+    return {
+      width: Math.round(glyphSize * 0.3),
+      height: Math.round(glyphSize * 0.36),
+      strokeWidth: Math.max(1, glyphSize * 0.065),
+      minBBoxDim: 0.18,
+      baselineAlign: true,
+      normalizeAnchor: 'baseline',
+    };
+  }
+
+  if (COMPACT_PUNCTUATION.has(character)) {
+    return {
+      width: Math.round(glyphSize * 0.42),
+      height: Math.round(glyphSize * 0.52),
+      strokeWidth: Math.max(1, glyphSize * 0.075),
+      minBBoxDim: 0.16,
+      baselineAlign: character === '-' || character === '+' || character === '*' || character === '/',
+      normalizeAnchor:
+        character === '-' || character === '+' || character === '*' || character === '/'
+          ? 'baseline'
+          : 'center',
+    };
+  }
+
+  if (isHandwritingSymbol(character)) {
+    return {
+      width: glyphSize,
+      height: glyphSize,
+      minBBoxDim: 0.14,
+      baselineAlign: false,
+      normalizeAnchor: 'center',
+    };
+  }
+
+  return {
+    width: glyphSize,
+    height: glyphSize,
+    minBBoxDim: 0.1,
+    baselineAlign: false,
+    normalizeAnchor: 'center',
+  };
 }
 
 export function glyphLetterForChar(char: string): HandwritingCharacter | null {

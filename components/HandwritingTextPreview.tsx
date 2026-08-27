@@ -8,7 +8,7 @@ import {
 } from '@/constants/handwriting';
 import { colors, radius } from '@/constants/theme';
 import type { HandwritingCharacter } from '@/constants/turkish-alphabet';
-import { glyphLetterForChar } from '@/lib/handwriting';
+import { glyphLetterForChar, glyphDisplayMetrics } from '@/lib/handwriting';
 import { splitIntoParagraphs } from '@/lib/handwritingPagination';
 import type { Stroke } from '@/lib/types';
 
@@ -25,19 +25,40 @@ function GlyphChar({
   glyphSize: number;
   fallbackFontSize: number;
 }) {
-  if (strokes && strokes.length > 0) {
+  const letter = glyphLetterForChar(char);
+  const display = letter ? glyphDisplayMetrics(letter, glyphSize) : null;
+
+  if (strokes && strokes.length > 0 && display) {
     return (
-      <View style={[styles.glyphBox, { width: glyphSize, height: glyphSize }]}>
-        <GlyphSvg strokes={strokes} size={glyphSize} />
+      <View
+        style={[
+          styles.glyphBox,
+          {
+            width: display.width,
+            height: glyphSize,
+          },
+          display.baselineAlign ? styles.glyphBoxBaseline : null,
+        ]}>
+        <GlyphSvg
+          strokes={strokes}
+          size={display.height}
+          strokeWidth={display.strokeWidth}
+          minBBoxDim={display.minBBoxDim}
+          normalizeAnchor={display.normalizeAnchor}
+        />
       </View>
     );
   }
+
+  const boxWidth = display?.width ?? glyphSize;
+  const boxHeight = glyphSize;
 
   return (
     <View
       style={[
         styles.glyphBox,
-        { width: glyphSize, height: glyphSize },
+        { width: boxWidth, height: boxHeight },
+        display?.baselineAlign ? styles.glyphBoxBaseline : null,
         missing ? styles.glyphBoxMissing : null,
       ]}>
       <Text
@@ -153,6 +174,9 @@ const styles = StyleSheet.create({
   glyphBox: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  glyphBoxBaseline: {
+    justifyContent: 'flex-end',
   },
   glyphBoxMissing: {
     borderRadius: radius.sm,
