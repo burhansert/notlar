@@ -33,7 +33,6 @@ export default function SectionNotesScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const headerTitle = sectionTitle?.trim() || 'Bölüm';
-  const breadcrumb = notebookTitle?.trim() || 'Not defteri';
 
   const load = useCallback(async () => {
     if (!session?.token || !sectionId) {
@@ -120,7 +119,7 @@ export default function SectionNotesScreen() {
       <Pressable
         onPress={() =>
           router.push(
-            `/note/new?sectionId=${sectionId}&notebookId=${notebookId}&sectionTitle=${encodeURIComponent(headerTitle)}&notebookTitle=${encodeURIComponent(breadcrumb)}` as Href
+            `/note/new?sectionId=${sectionId}&notebookId=${notebookId}&sectionTitle=${encodeURIComponent(headerTitle)}&notebookTitle=${encodeURIComponent(notebookTitle?.trim() || 'Not defteri')}` as Href
           )
         }
         style={({ pressed }) => [styles.fab, shadow.card, { opacity: pressed ? 0.85 : 1 }]}>
