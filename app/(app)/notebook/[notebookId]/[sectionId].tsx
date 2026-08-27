@@ -127,7 +127,7 @@ export default function SectionNotesScreen() {
                 router.push(
                   `/note/view/${item.id}?sectionId=${sectionId}&notebookId=${notebookId}&notebookTitle=${encodeURIComponent(
                     notebookTitle?.trim() || 'Not defteri'
-                  )}&noteIds=${filtered.map((note) => note.id).join(',')}` as Href
+                  )}` as Href
                 )
               }
             />

@@ -1,42 +1,62 @@
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/constants/theme';
+import { NOTE_BODY_FONT_SIZE, NOTE_BODY_LINE_HEIGHT } from '@/lib/notePagination';
 import { formatDateTime } from '@/lib/format';
 import type { Note } from '@/lib/types';
 
-export function NotePageContent({ note }: { note: Note }) {
-  const { width, height } = useWindowDimensions();
-
+export function NotePageContent({
+  note,
+  content,
+  showHeader,
+  width,
+}: {
+  note: Note;
+  content: string;
+  showHeader: boolean;
+  width: number;
+}) {
   return (
     <View style={[styles.page, { width }]}>
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { minHeight: height - 120 }]}
-        showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>{note.title.trim() || 'Başlıksız not'}</Text>
-        <Text style={styles.meta}>{formatDateTime(note.updated_at)}</Text>
-        {note.notebook_title || note.section_title ? (
-          <Text style={styles.context}>
-            {[note.notebook_title, note.section_title].filter(Boolean).join(' · ')}
-          </Text>
+      <View style={styles.inner}>
+        {showHeader ? (
+          <View style={styles.header}>
+            <Text style={styles.title}>{note.title.trim() || 'Başlıksız not'}</Text>
+            <Text style={styles.meta}>{formatDateTime(note.updated_at)}</Text>
+            {note.notebook_title || note.section_title ? (
+              <Text style={styles.context}>
+                {[note.notebook_title, note.section_title].filter(Boolean).join(' · ')}
+              </Text>
+            ) : null}
+          </View>
         ) : null}
-        <View style={styles.bodyCard}>
-          <Text style={styles.body}>
-            {note.content.trim() || 'Henüz içerik yok.'}
-          </Text>
+        <View style={[styles.bodyCard, !showHeader && styles.bodyCardFull]}>
+          <Text style={styles.body}>{content}</Text>
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
+
+export const notePageMeasureStyles = StyleSheet.create({
+  body: {
+    fontSize: NOTE_BODY_FONT_SIZE,
+    lineHeight: NOTE_BODY_LINE_HEIGHT,
+    color: colors.ink,
+  },
+});
 
 const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: colors.paper,
   },
-  scroll: {
+  inner: {
+    flex: 1,
     padding: spacing.lg,
-    paddingBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  header: {
     gap: spacing.sm,
   },
   title: {
@@ -56,17 +76,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bodyCard: {
-    marginTop: spacing.sm,
+    flex: 1,
     backgroundColor: colors.card,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
-    flex: 1,
+  },
+  bodyCardFull: {
+    marginTop: 0,
   },
   body: {
-    fontSize: 17,
-    lineHeight: 28,
+    fontSize: NOTE_BODY_FONT_SIZE,
+    lineHeight: NOTE_BODY_LINE_HEIGHT,
     color: colors.ink,
   },
 });
