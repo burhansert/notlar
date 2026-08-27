@@ -41,6 +41,7 @@ export type Note = {
   content: string;
   created_at: string;
   updated_at: string;
+  notebook_id?: string | null;
   author_email?: string | null;
   notebook_title?: string | null;
   section_title?: string | null;

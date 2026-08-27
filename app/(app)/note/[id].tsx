@@ -1,24 +1,36 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   View,
 } from 'react-native';
 
+import { NotebookSectionPicker } from '@/components/NotebookSectionPicker';
 import { Button } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { createNote, deleteNote, getNote, updateNote } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import type { Notebook, Section } from '@/lib/types';
 
 export default function NoteEditorScreen() {
-  const { id, sectionId } = useLocalSearchParams<{
+  const {
+    id,
+    sectionId: routeSectionId,
+    notebookTitle: routeNotebookTitle,
+    sectionTitle: routeSectionTitle,
+  } = useLocalSearchParams<{
     id: string;
     sectionId?: string;
+    notebookTitle?: string;
+    sectionTitle?: string;
   }>();
   const router = useRouter();
   const { session } = useAuth();
@@ -28,6 +40,10 @@ export default function NoteEditorScreen() {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | undefined>(routeSectionId);
+  const [notebookTitle, setNotebookTitle] = useState(routeNotebookTitle?.trim() ?? '');
+  const [sectionTitle, setSectionTitle] = useState(routeSectionTitle?.trim() ?? '');
 
   useEffect(() => {
     if (isNew || !id || !session?.token) {
@@ -39,6 +55,9 @@ export default function NoteEditorScreen() {
       .then((data) => {
         setTitle(data.title ?? '');
         setContent(data.content ?? '');
+        setSelectedSectionId(data.section_id);
+        setNotebookTitle(data.notebook_title ?? '');
+        setSectionTitle(data.section_title ?? '');
         setLoading(false);
       })
       .catch((err) => {
@@ -47,6 +66,13 @@ export default function NoteEditorScreen() {
       });
   }, [id, isNew, router, session?.token]);
 
+  function handleLocationSelect(notebook: Notebook, section: Section) {
+    setSelectedSectionId(section.id);
+    setNotebookTitle(notebook.title);
+    setSectionTitle(section.title);
+    setPickerOpen(false);
+  }
+
   async function save() {
     if (!session?.token) return;
     if (!title.trim() && !content.trim()) {
@@ -54,17 +80,17 @@ export default function NoteEditorScreen() {
       return;
     }
 
-    if (isNew && !sectionId) {
-      Alert.alert('Bölüm seçilmedi', 'Not oluşturmak için bir bölüm açın.');
+    if (!selectedSectionId) {
+      Alert.alert('Konum seçilmedi', 'Not için bir bölüm seçin.');
       return;
     }
 
     setSaving(true);
     try {
-      if (isNew && sectionId) {
-        await createNote(session.token, sectionId, title.trim(), content.trim());
+      if (isNew) {
+        await createNote(session.token, selectedSectionId, title.trim(), content.trim());
       } else if (id) {
-        await updateNote(session.token, id, title.trim(), content.trim());
+        await updateNote(session.token, id, title.trim(), content.trim(), selectedSectionId);
       }
       router.back();
     } catch (err) {
@@ -93,6 +119,13 @@ export default function NoteEditorScreen() {
     ]);
   }
 
+  const locationLabel =
+    notebookTitle && sectionTitle
+      ? `${notebookTitle} · ${sectionTitle}`
+      : selectedSectionId
+        ? 'Bölüm seçildi'
+        : 'Bölüm ve not defteri seç';
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: isNew ? 'Yeni not' : 'Notu düzenle' }} />
@@ -100,6 +133,18 @@ export default function NoteEditorScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Pressable
+            onPress={() => setPickerOpen(true)}
+            style={({ pressed }) => [styles.location, { opacity: pressed ? 0.85 : 1 }]}>
+            <Ionicons name="folder-open-outline" size={18} color={colors.forest} />
+            <View style={styles.locationText}>
+              <Text style={styles.locationLabel}>Konum</Text>
+              <Text style={styles.locationValue} numberOfLines={1}>
+                {locationLabel}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
           <TextInput
             value={title}
             onChangeText={setTitle}
@@ -130,6 +175,17 @@ export default function NoteEditorScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+      {session?.token ? (
+        <NotebookSectionPicker
+          visible={pickerOpen}
+          mode="section"
+          token={session.token}
+          selectedSectionId={selectedSectionId}
+          onSelectNotebook={() => {}}
+          onSelectSection={handleLocationSelect}
+          onCancel={() => setPickerOpen(false)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -141,6 +197,33 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
     flexGrow: 1,
+  },
+  location: {
+    minHeight: 56,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  locationText: {
+    flex: 1,
+    gap: 2,
+  },
+  locationLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  locationValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.ink,
   },
   title: {
     fontSize: 28,

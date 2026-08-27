@@ -14,10 +14,11 @@ import {
 
 import { SectionCard } from '@/components/SectionCard';
 import { EmptyState, PromptModal } from '@/components/ui';
+import { NotebookSectionPicker } from '@/components/NotebookSectionPicker';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
 import { createSection, deleteSection, listSections, updateSection } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import type { Section } from '@/lib/types';
+import type { Notebook, Section } from '@/lib/types';
 
 export default function SectionsScreen() {
   const { notebookId, title } = useLocalSearchParams<{ notebookId: string; title?: string }>();
@@ -29,6 +30,7 @@ export default function SectionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Section | null>(null);
+  const [moveTarget, setMoveTarget] = useState<Section | null>(null);
 
   const notebookTitle = title?.trim() || 'Not defteri';
 
@@ -84,10 +86,23 @@ export default function SectionsScreen() {
     }
   }
 
+  async function handleMove(notebook: Notebook) {
+    if (!session?.token || !moveTarget || !notebookId) return;
+    const target = moveTarget;
+    setMoveTarget(null);
+    try {
+      await updateSection(session.token, target.id, target.title, undefined, notebook.id);
+      load();
+    } catch (err) {
+      Alert.alert('Taşınamadı', err instanceof Error ? err.message : 'Bilinmeyen hata');
+    }
+  }
+
   function openMenu(section: Section) {
     Alert.alert(section.title.trim() || 'Bölüm', 'Ne yapmak istersiniz?', [
       { text: 'Vazgeç', style: 'cancel' },
       { text: 'Yeniden adlandır', onPress: () => setEditTarget(section) },
+      { text: 'Not defterine taşı', onPress: () => setMoveTarget(section) },
       {
         text: 'Sil',
         style: 'destructive',
@@ -196,6 +211,17 @@ export default function SectionsScreen() {
         onCancel={() => setEditTarget(null)}
         onConfirm={handleEdit}
       />
+      {session?.token ? (
+        <NotebookSectionPicker
+          visible={Boolean(moveTarget)}
+          mode="notebook"
+          token={session.token}
+          excludeNotebookId={notebookId}
+          onSelectNotebook={handleMove}
+          onSelectSection={() => {}}
+          onCancel={() => setMoveTarget(null)}
+        />
+      ) : null}
     </View>
   );
 }
