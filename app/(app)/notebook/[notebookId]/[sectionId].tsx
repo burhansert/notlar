@@ -120,7 +120,17 @@ export default function SectionNotesScreen() {
             />
           }
           renderItem={({ item }) => (
-            <NoteCard note={item} onPress={() => router.push(`/note/${item.id}` as Href)} />
+            <NoteCard
+              note={item}
+              onPress={() => router.push(`/note/${item.id}` as Href)}
+              onViewPress={() =>
+                router.push(
+                  `/note/view/${item.id}?sectionId=${sectionId}&notebookId=${notebookId}&notebookTitle=${encodeURIComponent(
+                    notebookTitle?.trim() || 'Not defteri'
+                  )}&noteIds=${filtered.map((note) => note.id).join(',')}` as Href
+                )
+              }
+            />
           )}
         />
       )}

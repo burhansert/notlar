@@ -35,6 +35,13 @@ export default function AppLayout() {
         }}
       />
       <Stack.Screen
+        name="note/view/[id]"
+        options={{
+          title: 'Sayfa görünümü',
+          headerTitleStyle: { fontWeight: '800' },
+        }}
+      />
+      <Stack.Screen
         name="handwriting/[letter]"
         options={{
           title: 'El Yazım',
