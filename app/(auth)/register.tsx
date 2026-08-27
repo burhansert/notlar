@@ -17,7 +17,7 @@ import { useAuth } from '@/lib/auth';
 
 export default function RegisterScreen() {
   const { signUp } = useAuth();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export default function RegisterScreen() {
     }
     setLoading(true);
     try {
-      await signUp(username, password);
+      await signUp(email, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kayıt oluşturulamadı.');
     } finally {
@@ -50,16 +50,17 @@ export default function RegisterScreen() {
           <BrandMark />
           <View style={styles.form}>
             <Text style={styles.hint}>
-              İlk kayıt olan kullanıcı yönetici olur. Kullanıcı adı 3-20 karakter,
-              küçük harf, rakam ve alt çizgi içerebilir.
+              E-posta ve şifre doğrudan veritabanındaki users tablosuna kaydedilir.
+              İlk kayıt olan kullanıcı yönetici olur.
             </Text>
             <ErrorBanner message={error} />
             <Input
-              label="Kullanıcı adı"
-              placeholder="ornek_kullanici"
-              value={username}
-              onChangeText={setUsername}
-              autoComplete="username"
+              label="E-posta"
+              placeholder="ornek@mail.com"
+              value={email}
+              onChangeText={setEmail}
+              autoComplete="email"
+              keyboardType="email-address"
             />
             <Input
               label="Şifre"

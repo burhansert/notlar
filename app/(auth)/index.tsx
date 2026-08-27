@@ -18,7 +18,7 @@ import { useAuth } from '@/lib/auth';
 
 export default function LoginScreen() {
   const { signIn, isConfigured } = useAuth();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -31,7 +31,7 @@ export default function LoginScreen() {
     setError(null);
     setLoading(true);
     try {
-      await signIn(username, password);
+      await signIn(email, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Giriş yapılamadı.');
     } finally {
@@ -51,11 +51,12 @@ export default function LoginScreen() {
           <View style={styles.form}>
             <ErrorBanner message={error} />
             <Input
-              label="Kullanıcı adı"
-              placeholder="ornek_kullanici"
-              value={username}
-              onChangeText={setUsername}
-              autoComplete="username"
+              label="E-posta"
+              placeholder="ornek@mail.com"
+              value={email}
+              onChangeText={setEmail}
+              autoComplete="email"
+              keyboardType="email-address"
             />
             <Input
               label="Şifre"

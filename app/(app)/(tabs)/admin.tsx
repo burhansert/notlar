@@ -14,16 +14,16 @@ import {
 import { NoteCard } from '@/components/NoteCard';
 import { Badge, EmptyState } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
+import { adminDeleteNote, adminListNotes, adminListUsers, adminSetUser } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime, noteCountLabel } from '@/lib/format';
-import { supabase } from '@/lib/supabase';
 import { noteAuthor, type Note, type ProfileWithNotes, type Role } from '@/lib/types';
 
 type TabKey = 'users' | 'notes';
 
 export default function AdminScreen() {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const [tab, setTab] = useState<TabKey>('users');
   const [users, setUsers] = useState<ProfileWithNotes[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -31,22 +31,20 @@ export default function AdminScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const [{ data: userRows }, { data: noteRows }] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, username, role, is_active, created_at, notes(count)')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('notes')
-        .select('id, user_id, title, content, created_at, updated_at, profiles(username)')
-        .order('updated_at', { ascending: false }),
-    ]);
-
-    setUsers((userRows as ProfileWithNotes[]) ?? []);
-    setNotes((noteRows as Note[]) ?? []);
+    if (!session?.token) return;
+    try {
+      const [userRows, noteRows] = await Promise.all([
+        adminListUsers(session.token),
+        adminListNotes(session.token),
+      ]);
+      setUsers(userRows ?? []);
+      setNotes(noteRows ?? []);
+    } catch (err) {
+      Alert.alert('Yüklenemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
+    }
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [session?.token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -63,22 +61,19 @@ export default function AdminScreen() {
     [users, notes]
   );
 
-  async function updateUser(userId: string, patch: Partial<Pick<ProfileWithNotes, 'role' | 'is_active'>>) {
-    if (userId === profile?.id && patch.role === 'user') {
-      Alert.alert('İşlem reddedildi', 'Kendi yönetici yetkinizi kaldıramazsınız.');
-      return;
+  async function updateUser(user: ProfileWithNotes, patch: { role?: Role; is_active?: boolean }) {
+    if (!session?.token) return;
+    try {
+      await adminSetUser(
+        session.token,
+        user.id,
+        patch.role ?? user.role,
+        patch.is_active ?? user.is_active
+      );
+      load();
+    } catch (err) {
+      Alert.alert('Güncellenemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
     }
-    if (userId === profile?.id && patch.is_active === false) {
-      Alert.alert('İşlem reddedildi', 'Kendi hesabınızı durduramazsınız.');
-      return;
-    }
-
-    const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
-    if (error) {
-      Alert.alert('Güncellenemedi', error.message);
-      return;
-    }
-    load();
   }
 
   async function deleteNote(noteId: string) {
@@ -88,12 +83,13 @@ export default function AdminScreen() {
         text: 'Sil',
         style: 'destructive',
         onPress: async () => {
-          const { error } = await supabase.from('notes').delete().eq('id', noteId);
-          if (error) {
-            Alert.alert('Silinemedi', error.message);
-            return;
+          if (!session?.token) return;
+          try {
+            await adminDeleteNote(session.token, noteId);
+            load();
+          } catch (err) {
+            Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
           }
-          load();
         },
       },
     ]);
@@ -103,10 +99,10 @@ export default function AdminScreen() {
     const nextRole: Role = user.role === 'admin' ? 'user' : 'admin';
     Alert.alert(
       nextRole === 'admin' ? 'Yönetici yap' : 'Yetkiyi kaldır',
-      `@${user.username} için rolü ${nextRole === 'admin' ? 'yönetici' : 'kullanıcı'} olarak değiştir?`,
+      `${user.email} için rolü ${nextRole === 'admin' ? 'yönetici' : 'kullanıcı'} olarak değiştir?`,
       [
         { text: 'Vazgeç', style: 'cancel' },
-        { text: 'Onayla', onPress: () => updateUser(user.id, { role: nextRole }) },
+        { text: 'Onayla', onPress: () => updateUser(user, { role: nextRole }) },
       ]
     );
   }
@@ -114,12 +110,12 @@ export default function AdminScreen() {
   function confirmActive(user: ProfileWithNotes) {
     Alert.alert(
       user.is_active ? 'Hesabı durdur' : 'Hesabı aç',
-      `@${user.username} ${user.is_active ? 'giriş yapamaz hale gelecek.' : 'yeniden giriş yapabilecek.'}`,
+      `${user.email} ${user.is_active ? 'giriş yapamaz hale gelecek.' : 'yeniden giriş yapabilecek.'}`,
       [
         { text: 'Vazgeç', style: 'cancel' },
         {
           text: 'Onayla',
-          onPress: () => updateUser(user.id, { is_active: !user.is_active }),
+          onPress: () => updateUser(user, { is_active: !user.is_active }),
         },
       ]
     );
@@ -153,10 +149,10 @@ export default function AdminScreen() {
           renderItem={({ item }) => (
             <View style={styles.userCard}>
               <View style={styles.userTop}>
-                <View>
-                  <Text style={styles.username}>@{item.username}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.username}>{item.email}</Text>
                   <Text style={styles.meta}>
-                    {noteCountLabel(item.notes?.[0]?.count ?? 0)} · {formatDateTime(item.created_at)}
+                    {noteCountLabel(Number(item.note_count) || 0)} · {formatDateTime(item.created_at)}
                   </Text>
                 </View>
                 <View style={styles.badges}>
@@ -170,16 +166,18 @@ export default function AdminScreen() {
                   />
                 </View>
               </View>
-              <View style={styles.actions}>
-                <MiniButton
-                  label={item.role === 'admin' ? 'Kullanıcı yap' : 'Yönetici yap'}
-                  onPress={() => confirmRole(item)}
-                />
-                <MiniButton
-                  label={item.is_active ? 'Durdur' : 'Aktifleştir'}
-                  onPress={() => confirmActive(item)}
-                />
-              </View>
+              {item.id === profile?.id ? null : (
+                <View style={styles.actions}>
+                  <MiniButton
+                    label={item.role === 'admin' ? 'Kullanıcı yap' : 'Yönetici yap'}
+                    onPress={() => confirmRole(item)}
+                  />
+                  <MiniButton
+                    label={item.is_active ? 'Durdur' : 'Aktifleştir'}
+                    onPress={() => confirmActive(item)}
+                  />
+                </View>
+              )}
             </View>
           )}
         />
@@ -198,16 +196,16 @@ export default function AdminScreen() {
           renderItem={({ item }) => {
             const author = noteAuthor(item);
             return (
-            <View style={styles.noteWrap}>
-              <NoteCard
-                note={item}
-                author={author ? `@${author}` : undefined}
-                onPress={() => router.push(`/note/${item.id}` as Href)}
-              />
-              <Pressable onPress={() => deleteNote(item.id)} style={styles.deleteNote}>
-                <Text style={styles.deleteNoteText}>Notu sil</Text>
-              </Pressable>
-            </View>
+              <View style={styles.noteWrap}>
+                <NoteCard
+                  note={item}
+                  author={author}
+                  onPress={() => router.push(`/note/${item.id}` as Href)}
+                />
+                <Pressable onPress={() => deleteNote(item.id)} style={styles.deleteNote}>
+                  <Text style={styles.deleteNoteText}>Notu sil</Text>
+                </Pressable>
+              </View>
             );
           }}
         />

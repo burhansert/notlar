@@ -1,53 +1,41 @@
 # Notlar
 
-Kullanıcı adı ve şifre ile giriş yapılan, not kaydeden, yönetici paneli olan React Native (Expo) uygulaması. Veritabanı ve kimlik doğrulama için Supabase kullanılır.
+E-posta ve şifre ile giriş yapılan not uygulaması. **Supabase Auth kullanılmaz.** Kullanıcılar `public.users` tablosuna yazılır.
 
 ## Özellikler
 
-- Kullanıcı adı + şifre ile kayıt ve giriş
+- E-posta + şifre ile kayıt ve giriş (`users` tablosu)
 - Kişisel not oluşturma, düzenleme, silme ve arama
 - İlk kayıt olan kullanıcı otomatik yönetici olur
-- Yönetici paneli: tüm kullanıcılar, roller, hesap durdurma, tüm notlar
+- Yönetici paneli: kullanıcılar, roller, hesap durdurma, tüm notlar
 
 ## Kurulum
 
 ```bash
 npm install
-cp .env.example .env
-```
-
-`.env` dosyasını doldurun:
-
-```
-EXPO_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=xxxxx
-```
-
-Uygulamayı başlatın:
-
-```bash
 npx expo start
 ```
 
-Ardından Expo Go (telefon) veya `w` (web) ile açın.
+Proje zaten şu Supabase adresine bağlıdır:
 
-## Supabase ayarı
+- URL: `https://osoepabysgfmnmzpjukc.supabase.co`
 
-1. [Supabase](https://supabase.com) üzerinde yeni proje oluşturun.
-2. **Authentication → Providers → Email** içinde **Confirm email** seçeneğini kapatın. Uygulama gerçek e-posta istemez; kullanıcı adı dahili olarak `kullanici@notlar.local` adresine çevrilir.
-3. **SQL Editor**’e `supabase/schema.sql` içeriğini yapıştırıp çalıştırın.
-4. Project Settings → API içinden URL ve anon/publishable key değerlerini `.env` dosyasına yazın.
+## Veritabanı (zorunlu)
 
-## Kullanım
+Supabase **SQL Editor**’e `supabase/schema.sql` içeriğini yapıştırıp **Run** deyin.
 
-- Kayıt ol: 3-20 karakterlik kullanıcı adı (küçük harf, rakam, `_`) ve en az 6 karakter şifre.
-- Notlarım sekmesinden not ekleyin, arayın, düzenleyin.
-- Yönetici hesabıyla alttaki **Yönetici** sekmesi görünür.
+Bu script:
 
-Bir kullanıcıyı sonradan yönetici yapmak için:
+- `users` (e-posta + hash’lenmiş şifre)
+- `sessions`
+- `notes`
+
+tablolarını oluşturur. Authentication ürünü açılmaz.
+
+Kayıt olunca e-posta ve şifre bu tabloya yazılır. Şifre düz metin tutulmaz; `pgcrypto` ile bcrypt hash’lenir.
+
+Manuel kullanıcı eklemek isterseniz SQL Editor’de:
 
 ```sql
-update public.profiles
-set role = 'admin'
-where username = 'kullanici_adi';
+select public.register_user('admin@ornek.com', 'sifre123');
 ```

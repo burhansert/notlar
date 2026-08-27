@@ -2,10 +2,15 @@ export type Role = 'user' | 'admin';
 
 export type Profile = {
   id: string;
-  username: string;
+  email: string;
   role: Role;
   is_active: boolean;
   created_at: string;
+};
+
+export type AppSession = {
+  token: string;
+  user: Profile;
 };
 
 export type Note = {
@@ -15,15 +20,13 @@ export type Note = {
   content: string;
   created_at: string;
   updated_at: string;
-  profiles?: { username: string } | { username: string }[] | null;
+  author_email?: string | null;
+};
+
+export type ProfileWithNotes = Profile & {
+  note_count: number;
 };
 
 export function noteAuthor(note: Note) {
-  if (!note.profiles) return undefined;
-  if (Array.isArray(note.profiles)) return note.profiles[0]?.username;
-  return note.profiles.username;
+  return note.author_email ?? undefined;
 }
-
-export type ProfileWithNotes = Profile & {
-  notes?: { count: number }[];
-};

@@ -4,23 +4,24 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Button } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
+import { listNotes } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime, noteCountLabel } from '@/lib/format';
-import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
-  const { profile, isAdmin, signOut } = useAuth();
+  const { profile, isAdmin, signOut, session } = useAuth();
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const loadCount = useCallback(async () => {
-    if (!profile) return;
-    const { count: nextCount } = await supabase
-      .from('notes')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', profile.id);
-    setCount(nextCount ?? 0);
-  }, [profile]);
+    if (!session?.token) return;
+    try {
+      const notes = await listNotes(session.token);
+      setCount(notes?.length ?? 0);
+    } catch {
+      setCount(0);
+    }
+  }, [session?.token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -44,10 +45,10 @@ export default function ProfileScreen() {
       <View style={styles.hero}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
-            {(profile?.username ?? '?').slice(0, 1).toUpperCase()}
+            {(profile?.email ?? '?').slice(0, 1).toUpperCase()}
           </Text>
         </View>
-        <Text style={styles.name}>@{profile?.username}</Text>
+        <Text style={styles.name}>{profile?.email}</Text>
         <View style={styles.badges}>
           <Badge
             label={isAdmin ? 'Yönetici' : 'Kullanıcı'}
@@ -58,7 +59,7 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.card}>
-        <Row label="Kullanıcı adı" value={profile?.username ?? '—'} />
+        <Row label="E-posta" value={profile?.email ?? '—'} />
         <Row label="Rol" value={isAdmin ? 'Yönetici' : 'Kullanıcı'} />
         <Row
           label="Kayıt tarihi"
@@ -105,9 +106,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   name: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '800',
     color: colors.ink,
+    textAlign: 'center',
   },
   badges: {
     flexDirection: 'row',

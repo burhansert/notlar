@@ -12,13 +12,13 @@ import {
 
 import { Button } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
+import { createNote, deleteNote, getNote, updateNote } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
 
 export default function NoteEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { user } = useAuth();
+  const { session } = useAuth();
   const isNew = id === 'new';
 
   const [title, setTitle] = useState('');
@@ -27,30 +27,25 @@ export default function NoteEditorScreen() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (isNew || !id) {
+    if (isNew || !id || !session?.token) {
       setLoading(false);
       return;
     }
 
-    supabase
-      .from('notes')
-      .select('id, title, content')
-      .eq('id', id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error || !data) {
-          Alert.alert('Not bulunamadı', 'Bu not silinmiş veya erişim yok.');
-          router.back();
-          return;
-        }
+    getNote(session.token, id)
+      .then((data) => {
         setTitle(data.title ?? '');
         setContent(data.content ?? '');
         setLoading(false);
+      })
+      .catch((err) => {
+        Alert.alert('Not bulunamadı', err instanceof Error ? err.message : 'Erişim yok.');
+        router.back();
       });
-  }, [id, isNew, router]);
+  }, [id, isNew, router, session?.token]);
 
   async function save() {
-    if (!user) return;
+    if (!session?.token) return;
     if (!title.trim() && !content.trim()) {
       Alert.alert('Boş not', 'Bir başlık veya içerik yazın.');
       return;
@@ -59,18 +54,9 @@ export default function NoteEditorScreen() {
     setSaving(true);
     try {
       if (isNew) {
-        const { error } = await supabase.from('notes').insert({
-          user_id: user.id,
-          title: title.trim(),
-          content: content.trim(),
-        });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('notes')
-          .update({ title: title.trim(), content: content.trim() })
-          .eq('id', id);
-        if (error) throw error;
+        await createNote(session.token, title.trim(), content.trim());
+      } else if (id) {
+        await updateNote(session.token, id, title.trim(), content.trim());
       }
       router.back();
     } catch (err) {
@@ -81,19 +67,19 @@ export default function NoteEditorScreen() {
   }
 
   async function remove() {
-    if (isNew || !id) return;
+    if (isNew || !id || !session?.token) return;
     Alert.alert('Notu sil', 'Bu işlem geri alınamaz.', [
       { text: 'Vazgeç', style: 'cancel' },
       {
         text: 'Sil',
         style: 'destructive',
         onPress: async () => {
-          const { error } = await supabase.from('notes').delete().eq('id', id);
-          if (error) {
-            Alert.alert('Silinemedi', error.message);
-            return;
+          try {
+            await deleteNote(session.token, id);
+            router.back();
+          } catch (err) {
+            Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
           }
-          router.back();
         },
       },
     ]);

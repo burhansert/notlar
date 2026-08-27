@@ -14,30 +14,34 @@ import {
 import { NoteCard } from '@/components/NoteCard';
 import { EmptyState } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
-import { supabase } from '@/lib/supabase';
+import { listNotes } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import type { Note } from '@/lib/types';
 
 export default function NotesScreen() {
   const router = useRouter();
+  const { session } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('notes')
-      .select('id, user_id, title, content, created_at, updated_at')
-      .order('updated_at', { ascending: false });
-
-    if (error) {
+    if (!session?.token) {
       setNotes([]);
-    } else {
-      setNotes((data as Note[]) ?? []);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    try {
+      const data = await listNotes(session.token);
+      setNotes(data ?? []);
+    } catch {
+      setNotes([]);
     }
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [session?.token]);
 
   useFocusEffect(
     useCallback(() => {

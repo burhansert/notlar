@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   createContext,
   useCallback,
@@ -7,162 +8,128 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import type { Profile } from '@/lib/types';
-import {
-  normalizeUsername,
-  translateAuthError,
-  usernameToEmail,
-  validatePassword,
-  validateUsername,
-} from '@/lib/username';
+import * as api from '@/lib/api';
+import { validateEmail, validatePassword } from '@/lib/credentials';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import type { AppSession, Profile } from '@/lib/types';
+
+const SESSION_KEY = 'notlar.session';
 
 type AuthContextValue = {
-  session: Session | null;
-  user: User | null;
+  session: AppSession | null;
+  user: Profile | null;
   profile: Profile | null;
   isLoading: boolean;
   isConfigured: boolean;
   isAdmin: boolean;
-  signIn: (username: string, password: string) => Promise<void>;
-  signUp: (username: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-async function fetchProfile(userId: string) {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, username, role, is_active, created_at')
-    .eq('id', userId)
-    .maybeSingle();
+async function readStoredSession() {
+  if (Platform.OS === 'web' && typeof window === 'undefined') return null;
+  const raw = await AsyncStorage.getItem(SESSION_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AppSession;
+  } catch {
+    return null;
+  }
+}
 
-  if (error) throw error;
-  return (data as Profile | null) ?? null;
+async function writeStoredSession(session: AppSession | null) {
+  if (Platform.OS === 'web' && typeof window === 'undefined') return;
+  if (session) {
+    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } else {
+    await AsyncStorage.removeItem(SESSION_KEY);
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [session, setSession] = useState<AppSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadProfile = useCallback(async (nextSession: Session | null) => {
-    if (!nextSession?.user) {
-      setProfile(null);
-      return;
-    }
-
-    const nextProfile = await fetchProfile(nextSession.user.id);
-    if (nextProfile && !nextProfile.is_active) {
-      await supabase.auth.signOut();
-      setSession(null);
-      setProfile(null);
-      throw new Error('Hesabınız yönetici tarafından durduruldu.');
-    }
-    setProfile(nextProfile);
+  const applySession = useCallback(async (next: AppSession | null) => {
+    setSession(next);
+    await writeStoredSession(next);
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setIsLoading(false);
-      return;
-    }
-
     let mounted = true;
 
-    supabase.auth
-      .getSession()
-      .then(async ({ data }) => {
-        if (!mounted) return;
-        setSession(data.session);
-        try {
-          await loadProfile(data.session);
-        } catch {
-          setProfile(null);
-        }
-      })
-      .finally(() => {
+    (async () => {
+      try {
+        const stored = await readStoredSession();
+        if (!stored?.token) return;
+        const restored = await api.restoreSession(stored.token);
+        if (mounted) await applySession(restored);
+      } catch {
+        await writeStoredSession(null);
+        if (mounted) setSession(null);
+      } finally {
         if (mounted) setIsLoading(false);
-      });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      loadProfile(nextSession).catch(() => {
-        setProfile(null);
-      });
-    });
+      }
+    })();
 
     return () => {
       mounted = false;
-      listener.subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, [applySession]);
 
-  const signIn = useCallback(async (username: string, password: string) => {
-    const usernameError = validateUsername(username);
-    if (usernameError) throw new Error(usernameError);
-    const passwordError = validatePassword(password);
-    if (passwordError) throw new Error(passwordError);
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const emailError = validateEmail(email);
+      if (emailError) throw new Error(emailError);
+      const passwordError = validatePassword(password);
+      if (passwordError) throw new Error(passwordError);
+      const next = await api.loginUser(email, password);
+      await applySession(next);
+    },
+    [applySession]
+  );
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: usernameToEmail(username),
-      password,
-    });
-    if (error) throw new Error(translateAuthError(error.message));
-  }, []);
-
-  const signUp = useCallback(async (username: string, password: string) => {
-    const normalized = normalizeUsername(username);
-    const usernameError = validateUsername(normalized);
-    if (usernameError) throw new Error(usernameError);
-    const passwordError = validatePassword(password);
-    if (passwordError) throw new Error(passwordError);
-
-    const { data, error } = await supabase.auth.signUp({
-      email: usernameToEmail(normalized),
-      password,
-      options: {
-        data: { username: normalized },
-      },
-    });
-    if (error) throw new Error(translateAuthError(error.message));
-    if (!data.session) {
-      throw new Error(
-        'Kayıt alındı ancak oturum açılmadı. Supabase e-posta doğrulamasını kapatın ve tekrar deneyin.'
-      );
-    }
-  }, []);
+  const signUp = useCallback(
+    async (email: string, password: string) => {
+      const emailError = validateEmail(email);
+      if (emailError) throw new Error(emailError);
+      const passwordError = validatePassword(password);
+      if (passwordError) throw new Error(passwordError);
+      const next = await api.registerUser(email, password);
+      await applySession(next);
+    },
+    [applySession]
+  );
 
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw new Error(translateAuthError(error.message));
-    setProfile(null);
-  }, []);
-
-  const refreshProfile = useCallback(async () => {
-    if (!session?.user) return;
-    const nextProfile = await fetchProfile(session.user.id);
-    setProfile(nextProfile);
-  }, [session]);
+    if (session?.token) {
+      try {
+        await api.logoutUser(session.token);
+      } catch {
+        // Yerel oturumu yine de kapat.
+      }
+    }
+    await applySession(null);
+  }, [applySession, session]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
       user: session?.user ?? null,
-      profile,
+      profile: session?.user ?? null,
       isLoading,
       isConfigured: isSupabaseConfigured,
-      isAdmin: profile?.role === 'admin' && profile.is_active,
+      isAdmin: session?.user.role === 'admin' && session.user.is_active,
       signIn,
       signUp,
       signOut,
-      refreshProfile,
     }),
-    [session, profile, isLoading, signIn, signUp, signOut, refreshProfile]
+    [session, isLoading, signIn, signUp, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
