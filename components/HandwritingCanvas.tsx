@@ -7,14 +7,18 @@ import {
   useWindowDimensions,
   type ViewStyle,
 } from 'react-native';
-import Svg, { Text as SvgText } from 'react-native-svg';
+import Svg, { Path, Text as SvgText } from 'react-native-svg';
 
-import { GlyphSvg } from '@/components/GlyphSvg';
 import { colors, radius } from '@/constants/theme';
-import { getHandwritingCanvasSize, normalizePoint } from '@/lib/handwriting';
+import {
+  getHandwritingCanvasSize,
+  normalizePoint,
+  strokeToPath,
+  strokeWidthForSize,
+} from '@/lib/handwriting';
 import type { Stroke } from '@/lib/types';
 
-const PENCIL_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><path d="M5 23 L9 19 L21 7 L23 9 L11 21 Z" fill="white" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/><path d="M21 7 L23 5 L25 7 L23 9 Z" fill="white" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/><line x1="9" y1="19" x2="11" y2="21" stroke="#000" stroke-width="1.6"/></svg>`;
+const PENCIL_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><path d="M3 5 L6 8 L22 24 L25 21 L9 5 Z" fill="white" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/><path d="M3 5 L1 3 L3 1 L5 3 Z" fill="white" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 
 const webCanvasStyle: ViewStyle | undefined =
   Platform.OS === 'web'
@@ -23,7 +27,7 @@ const webCanvasStyle: ViewStyle | undefined =
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
         touchAction: 'none',
-        cursor: `url("data:image/svg+xml,${encodeURIComponent(PENCIL_CURSOR_SVG)}") 4 4, crosshair`,
+        cursor: `url("data:image/svg+xml,${encodeURIComponent(PENCIL_CURSOR_SVG)}") 3 3, crosshair`,
       } as unknown as ViewStyle)
     : undefined;
 
@@ -39,6 +43,7 @@ export function HandwritingCanvas({
   const { width: windowWidth } = useWindowDimensions();
   const canvasSize = getHandwritingCanvasSize(windowWidth);
   const guideSize = canvasSize * 0.72;
+  const strokeWidth = strokeWidthForSize(canvasSize);
   const strokesRef = useRef(strokes);
   strokesRef.current = strokes;
 
@@ -89,7 +94,7 @@ export function HandwritingCanvas({
               onDragStart: (event: { preventDefault: () => void }) => event.preventDefault(),
             }
           : {})}>
-        <Svg width={canvasSize} height={canvasSize} style={styles.guideLayer} pointerEvents="none">
+        <Svg width={canvasSize} height={canvasSize} pointerEvents="none">
           <SvgText
             x={canvasSize / 2}
             y={canvasSize * 0.68}
@@ -100,13 +105,19 @@ export function HandwritingCanvas({
             textAnchor="middle">
             {letter}
           </SvgText>
+          {strokes.map((stroke, index) => (
+            <Path
+              key={`stroke-${index}`}
+              d={strokeToPath(stroke, canvasSize, canvasSize)}
+              stroke={colors.handwritingInk}
+              strokeOpacity={1}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          ))}
         </Svg>
-        <GlyphSvg
-          strokes={strokes}
-          size={canvasSize}
-          strokeColor={colors.handwritingInk}
-          normalize={false}
-        />
       </View>
     </View>
   );
@@ -124,10 +135,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  guideLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
   },
 });

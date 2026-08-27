@@ -27,6 +27,7 @@ export function GlyphSvg({
           key={`glyph-${index}`}
           d={strokeToPath(stroke, size, size)}
           stroke={strokeColor}
+          strokeOpacity={1}
           strokeWidth={width}
           strokeLinecap="round"
           strokeLinejoin="round"
