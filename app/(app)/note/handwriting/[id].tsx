@@ -1,10 +1,10 @@
 import { Stack, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { HandwritingTextPreview } from '@/components/HandwritingTextPreview';
+import { HandwritingNotePager } from '@/components/HandwritingNotePager';
 import { HeaderBackButton } from '@/components/HeaderBackButton';
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 import { getNote, listHandwritingGlyphs } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { buildGlyphMap } from '@/lib/handwriting';
@@ -83,9 +83,6 @@ export default function NoteHandwritingViewScreen() {
     );
   }
 
-  const title = note.title.trim() || 'Başlıksız not';
-  const content = note.content.trim() || 'Henüz içerik yok.';
-
   return (
     <View style={styles.container}>
       <Stack.Screen
@@ -94,12 +91,7 @@ export default function NoteHandwritingViewScreen() {
           headerLeft: () => <HeaderBackButton fallbackHref={backHref} />,
         }}
       />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{title}</Text>
-        <View style={styles.bodyCard}>
-          <HandwritingTextPreview text={content} glyphMap={glyphMap} />
-        </View>
-      </ScrollView>
+      <HandwritingNotePager note={note} glyphMap={glyphMap} />
     </View>
   );
 }
@@ -120,24 +112,5 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 16,
     fontWeight: '600',
-  },
-  content: {
-    padding: spacing.lg,
-    gap: spacing.md,
-    paddingBottom: 120,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.ink,
-    lineHeight: 34,
-  },
-  bodyCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    minHeight: 120,
   },
 });

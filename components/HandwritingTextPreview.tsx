@@ -1,43 +1,53 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { GlyphSvg } from '@/components/GlyphSvg';
+import {
+  DEFAULT_HANDWRITING_GLYPH_SIZE,
+  handwritingLayoutMetrics,
+} from '@/constants/handwriting';
 import { colors, radius } from '@/constants/theme';
 import type { HandwritingCharacter } from '@/constants/turkish-alphabet';
 import { glyphLetterForChar } from '@/lib/handwriting';
+import { splitIntoParagraphs } from '@/lib/handwritingPagination';
 import type { Stroke } from '@/lib/types';
-
-const GLYPH_SIZE = 52;
-const LETTER_GAP = 1;
-const WORD_GAP = 12;
-const PARAGRAPH_GAP = 14;
-
-function splitIntoParagraphs(text: string): string[][] {
-  return text
-    .split(/\n+/)
-    .map((paragraph) => paragraph.trim().split(/\s+/).filter(Boolean))
-    .filter((words) => words.length > 0);
-}
 
 function GlyphChar({
   char,
   strokes,
   missing,
+  glyphSize,
+  fallbackFontSize,
 }: {
   char: string;
   strokes?: Stroke[];
   missing: boolean;
+  glyphSize: number;
+  fallbackFontSize: number;
 }) {
   if (strokes && strokes.length > 0) {
     return (
-      <View style={styles.glyphBox}>
-        <GlyphSvg strokes={strokes} size={GLYPH_SIZE} />
+      <View style={[styles.glyphBox, { width: glyphSize, height: glyphSize }]}>
+        <GlyphSvg strokes={strokes} size={glyphSize} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.glyphBox, missing ? styles.glyphBoxMissing : null]}>
-      <Text style={[styles.fallback, missing ? styles.fallbackMissing : null]}>{char}</Text>
+    <View
+      style={[
+        styles.glyphBox,
+        { width: glyphSize, height: glyphSize },
+        missing ? styles.glyphBoxMissing : null,
+      ]}>
+      <Text
+        style={[
+          styles.fallback,
+          { fontSize: fallbackFontSize },
+          missing ? styles.fallbackMissing : null,
+        ]}>
+        {char}
+      </Text>
     </View>
   );
 }
@@ -46,13 +56,19 @@ function HandwritingWord({
   word,
   glyphMap,
   keyPrefix,
+  glyphSize,
+  letterGap,
+  fallbackFontSize,
 }: {
   word: string;
   glyphMap: Map<HandwritingCharacter, Stroke[]>;
   keyPrefix: string;
+  glyphSize: number;
+  letterGap: number;
+  fallbackFontSize: number;
 }) {
   return (
-    <View style={styles.word}>
+    <View style={[styles.word, { gap: letterGap }]}>
       {Array.from(word).map((char, index) => {
         const letter = glyphLetterForChar(char);
         const strokes = letter ? glyphMap.get(letter) : undefined;
@@ -64,6 +80,8 @@ function HandwritingWord({
             char={char}
             strokes={strokes}
             missing={missing}
+            glyphSize={glyphSize}
+            fallbackFontSize={fallbackFontSize}
           />
         );
       })}
@@ -74,12 +92,15 @@ function HandwritingWord({
 export function HandwritingTextPreview({
   text,
   glyphMap,
+  glyphSize = DEFAULT_HANDWRITING_GLYPH_SIZE,
 }: {
   text: string;
   glyphMap: Map<HandwritingCharacter, Stroke[]>;
+  glyphSize?: number;
 }) {
   const value = text.trim();
   const paragraphs = splitIntoParagraphs(value);
+  const metrics = useMemo(() => handwritingLayoutMetrics(glyphSize), [glyphSize]);
 
   if (!value || paragraphs.length === 0) {
     return (
@@ -90,15 +111,23 @@ export function HandwritingTextPreview({
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { gap: metrics.paragraphGap }]}>
       {paragraphs.map((words, paragraphIndex) => (
-        <View key={`paragraph-${paragraphIndex}`} style={styles.paragraph}>
+        <View
+          key={`paragraph-${paragraphIndex}`}
+          style={[
+            styles.paragraph,
+            { columnGap: metrics.wordGap, rowGap: metrics.rowGap },
+          ]}>
           {words.map((word, wordIndex) => (
             <HandwritingWord
               key={`word-${paragraphIndex}-${wordIndex}`}
               keyPrefix={`word-${paragraphIndex}-${wordIndex}`}
               word={word}
               glyphMap={glyphMap}
+              glyphSize={metrics.glyphSize}
+              letterGap={metrics.letterGap}
+              fallbackFontSize={metrics.fallbackFontSize}
             />
           ))}
         </View>
@@ -109,25 +138,19 @@ export function HandwritingTextPreview({
 
 const styles = StyleSheet.create({
   container: {
-    gap: PARAGRAPH_GAP,
     minHeight: 56,
   },
   paragraph: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'flex-end',
-    columnGap: WORD_GAP,
-    rowGap: 8,
   },
   word: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
     alignItems: 'flex-end',
-    gap: LETTER_GAP,
   },
   glyphBox: {
-    width: GLYPH_SIZE,
-    height: GLYPH_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -136,7 +159,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paperDark,
   },
   fallback: {
-    fontSize: 30,
     fontWeight: '800',
     color: colors.ink,
     includeFontPadding: false,
