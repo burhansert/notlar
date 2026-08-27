@@ -19,10 +19,11 @@ import {
   noteBodyTextStyle,
 } from '@/components/NotePageContent';
 import { colors, spacing } from '@/constants/theme';
+import { formatDateTime } from '@/lib/format';
 import { groupLinesIntoPages, linesPerPage, NOTE_BODY_LINE_HEIGHT } from '@/lib/notePagination';
 import type { Note } from '@/lib/types';
 
-const INDICATOR_HEIGHT = 44;
+const TOP_BAR_HEIGHT = 36;
 const MEASURE_TIMEOUT_MS = 400;
 
 const WEB_NO_SELECT =
@@ -49,7 +50,7 @@ export function NotePagePager({ note }: Props) {
 
   const content = note.content.trim() || 'Henüz içerik yok.';
   const bodyWidth = width - spacing.lg * 2 - spacing.md * 2;
-  const showIndicator = (pages?.length ?? 0) > 1;
+  const showPageCount = (pages?.length ?? 0) > 1;
 
   const layout = useMemo(() => {
     const pagePadding = spacing.lg * 2 + spacing.sm;
@@ -171,18 +172,18 @@ export function NotePagePager({ note }: Props) {
 
   return (
     <View style={[styles.container, WEB_NO_SELECT]}>
-      {showIndicator ? (
-        <View style={styles.indicator}>
-          <Text selectable={false} style={styles.indicatorText}>
-            {currentPage + 1} / {pages?.length}
+      <View style={styles.topBar}>
+        <View style={styles.topBarGroup}>
+          <Text selectable={false} style={styles.date}>
+            {formatDateTime(note.updated_at)}
           </Text>
-          <Text selectable={false} style={styles.hint}>
-            {Platform.OS === 'web'
-              ? 'Fare tekerleği, sürükleyerek veya ok tuşlarıyla gezinin'
-              : 'Yatay kaydırarak devamını okuyun'}
-          </Text>
+          {showPageCount ? (
+            <Text selectable={false} style={styles.pageCount}>
+              {currentPage + 1} / {pages?.length}
+            </Text>
+          ) : null}
         </View>
-      ) : null}
+      </View>
 
       <View
         style={styles.pagerWrap}
@@ -246,23 +247,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.paper,
   },
-  indicator: {
-    height: INDICATOR_HEIGHT,
+  topBar: {
+    height: TOP_BAR_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    paddingHorizontal: spacing.lg,
   },
-  indicatorText: {
+  topBarGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  date: {
+    fontSize: 13,
+    color: colors.muted,
+    fontWeight: '600',
+  },
+  pageCount: {
     fontSize: 13,
     fontWeight: '800',
     color: colors.forest,
-  },
-  hint: {
-    fontSize: 12,
-    color: colors.muted,
-    fontWeight: '600',
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
   },
   pagerWrap: {
     flex: 1,
