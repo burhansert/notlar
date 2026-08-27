@@ -15,15 +15,15 @@ export default function HandwritingLetterScreen() {
   const { letter: letterParam } = useLocalSearchParams<{ letter: string }>();
   const router = useRouter();
   const { session } = useAuth();
-  const letter = letterFromRouteParam(letterParam ?? '');
+  const character = letterFromRouteParam(letterParam ?? '');
 
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!letter) {
-      Alert.alert('Geçersiz harf', 'Seçilen harf Türkçe alfabede bulunamadı.');
+    if (!character) {
+      Alert.alert('Geçersiz karakter', 'Seçilen karakter desteklenmiyor.');
       router.back();
       return;
     }
@@ -33,7 +33,7 @@ export default function HandwritingLetterScreen() {
       return;
     }
 
-    getHandwritingGlyph(session.token, letter)
+    getHandwritingGlyph(session.token, character)
       .then((glyph) => {
         setStrokes(Array.isArray(glyph?.stroke_data) ? glyph.stroke_data : []);
         setLoading(false);
@@ -42,7 +42,7 @@ export default function HandwritingLetterScreen() {
         setStrokes([]);
         setLoading(false);
       });
-  }, [letter, router, session?.token]);
+  }, [character, router, session?.token]);
 
   function undoStroke() {
     setStrokes((current) => current.slice(0, -1));
@@ -53,15 +53,15 @@ export default function HandwritingLetterScreen() {
   }
 
   async function save() {
-    if (!session?.token || !letter) return;
+    if (!session?.token || !character) return;
     if (strokes.length === 0) {
-      Alert.alert('Boş çizim', 'Kaydetmeden önce harfi çizin.');
+      Alert.alert('Boş çizim', 'Kaydetmeden önce karakteri çizin.');
       return;
     }
 
     setSaving(true);
     try {
-      await upsertHandwritingGlyph(session.token, letter, strokes);
+      await upsertHandwritingGlyph(session.token, character, strokes);
       router.back();
     } catch (err) {
       Alert.alert('Kaydedilemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
@@ -70,7 +70,7 @@ export default function HandwritingLetterScreen() {
     }
   }
 
-  if (!letter) {
+  if (!character) {
     return null;
   }
 
@@ -78,17 +78,17 @@ export default function HandwritingLetterScreen() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          title: `${letter} harfi`,
+          title: `${character} karakteri`,
           headerLeft: () => <HeaderBackButton fallbackHref={'/(tabs)/handwriting' as Href} />,
         }}
       />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.help}>
-          Parmağınız veya kalemle {letter} harfini çizin. Kaydettiğinizde bu harf kişisel fontunuza
-          eklenir.
+          Parmağınız veya kalemle {character} karakterini çizin. Kaydettiğinizde bu karakter kişisel
+          fontunuza eklenir.
         </Text>
 
-        <HandwritingCanvas letter={letter} strokes={strokes} onChange={setStrokes} />
+        <HandwritingCanvas letter={character} strokes={strokes} onChange={setStrokes} />
 
         <View style={styles.tools}>
           <View style={styles.toolButton}>

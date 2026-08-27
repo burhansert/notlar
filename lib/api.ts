@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { translateError } from '@/lib/credentials';
-import { resolveTurkishLetter } from '@/constants/turkish-alphabet';
+import { resolveHandwritingCharacter } from '@/constants/turkish-alphabet';
 import type {
   AppSession,
   HandwritingGlyph,
@@ -166,7 +166,7 @@ export function listHandwritingGlyphs(token: string) {
 }
 
 export async function getHandwritingGlyph(token: string, letter: string) {
-  const resolved = resolveTurkishLetter(letter);
+  const resolved = resolveHandwritingCharacter(letter);
   if (!resolved) return null;
 
   const data = await rpc<HandwritingGlyph | HandwritingGlyph[] | null>('get_handwriting_glyph', {
@@ -178,9 +178,9 @@ export async function getHandwritingGlyph(token: string, letter: string) {
 }
 
 export function upsertHandwritingGlyph(token: string, letter: string, strokeData: Stroke[]) {
-  const resolved = resolveTurkishLetter(letter);
+  const resolved = resolveHandwritingCharacter(letter);
   if (!resolved) {
-    return Promise.reject(new Error('Geçerli bir harf seçin.'));
+    return Promise.reject(new Error('Geçerli bir karakter seçin.'));
   }
 
   return rpc<HandwritingGlyph>('upsert_handwriting_glyph', {
@@ -191,9 +191,9 @@ export function upsertHandwritingGlyph(token: string, letter: string, strokeData
 }
 
 export function deleteHandwritingGlyph(token: string, letter: string) {
-  const resolved = resolveTurkishLetter(letter);
+  const resolved = resolveHandwritingCharacter(letter);
   if (!resolved) {
-    return Promise.reject(new Error('Geçerli bir harf seçin.'));
+    return Promise.reject(new Error('Geçerli bir karakter seçin.'));
   }
 
   return rpc<null>('delete_handwriting_glyph', { p_token: token, p_letter: resolved });

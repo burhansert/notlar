@@ -1,4 +1,4 @@
-import { resolveTurkishLetter, type TurkishLetter } from '@/constants/turkish-alphabet';
+import { resolveHandwritingCharacter, type HandwritingCharacter } from '@/constants/turkish-alphabet';
 import type { HandwritingGlyph, Stroke, StrokePoint } from '@/lib/types';
 
 export const HANDWRITING_CANVAS_PADDING = 24;
@@ -72,18 +72,18 @@ export function normalizeStrokesToBounds(strokes: Stroke[], padding = 0.1): Stro
   );
 }
 
-export function glyphLetterForChar(char: string): TurkishLetter | null {
+export function glyphLetterForChar(char: string): HandwritingCharacter | null {
   if (!char.trim()) return null;
-  return resolveTurkishLetter(char);
+  return resolveHandwritingCharacter(char);
 }
 
 export function buildGlyphMap(glyphs: HandwritingGlyph[]) {
-  const map = new Map<TurkishLetter, Stroke[]>();
+  const map = new Map<HandwritingCharacter, Stroke[]>();
   for (const glyph of glyphs) {
-    const letter = resolveTurkishLetter(glyph.letter);
-    if (!letter) continue;
+    const character = resolveHandwritingCharacter(glyph.letter);
+    if (!character) continue;
     if (Array.isArray(glyph.stroke_data) && glyph.stroke_data.length > 0) {
-      map.set(letter, glyph.stroke_data);
+      map.set(character, glyph.stroke_data);
     }
   }
   return map;
