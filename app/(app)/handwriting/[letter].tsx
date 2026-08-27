@@ -1,14 +1,14 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { HandwritingCanvas } from '@/components/HandwritingCanvas';
+import { HeaderBackButton } from '@/components/HeaderBackButton';
 import { Button } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { letterFromRouteParam } from '@/constants/turkish-alphabet';
 import { deleteHandwritingGlyph, getHandwritingGlyph, upsertHandwritingGlyph } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { normalizeStrokesToBounds } from '@/lib/handwriting';
 import type { Stroke } from '@/lib/types';
 
 export default function HandwritingLetterScreen() {
@@ -61,7 +61,7 @@ export default function HandwritingLetterScreen() {
 
     setSaving(true);
     try {
-      await upsertHandwritingGlyph(session.token, letter, normalizeStrokesToBounds(strokes));
+      await upsertHandwritingGlyph(session.token, letter, strokes);
       router.back();
     } catch (err) {
       Alert.alert('Kaydedilemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
@@ -96,7 +96,12 @@ export default function HandwritingLetterScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: `${letter} harfi` }} />
+      <Stack.Screen
+        options={{
+          title: `${letter} harfi`,
+          headerLeft: () => <HeaderBackButton fallbackHref={'/(tabs)/handwriting' as Href} />,
+        }}
+      />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.help}>
           Parmağınız veya kalemle {letter} harfini çizin. Kaydettiğinizde bu harf kişisel fontunuza
@@ -135,7 +140,6 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
     gap: spacing.md,
-    flexGrow: 1,
   },
   help: {
     fontSize: 14,

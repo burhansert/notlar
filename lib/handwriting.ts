@@ -83,7 +83,7 @@ export function buildGlyphMap(glyphs: HandwritingGlyph[]) {
   for (const glyph of glyphs) {
     if (!isTurkishLetter(glyph.letter)) continue;
     if (Array.isArray(glyph.stroke_data) && glyph.stroke_data.length > 0) {
-      map.set(glyph.letter, normalizeStrokesToBounds(glyph.stroke_data));
+      map.set(glyph.letter, glyph.stroke_data);
     }
   }
   return map;

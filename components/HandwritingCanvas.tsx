@@ -99,9 +99,12 @@ export function HandwritingCanvas({
             {letter}
           </SvgText>
         </Svg>
-        <View style={styles.drawingLayer} pointerEvents="none">
-          <GlyphSvg strokes={strokes} size={canvasSize} strokeColor={colors.ink} normalize={false} />
-        </View>
+        <GlyphSvg
+          strokes={strokes}
+          size={canvasSize}
+          strokeColor={colors.ink}
+          normalize={false}
+        />
       </View>
     </View>
   );
@@ -121,9 +124,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   guideLayer: {
-    ...StyleSheet.absoluteFill,
-  },
-  drawingLayer: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
 });
