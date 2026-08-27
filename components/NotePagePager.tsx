@@ -129,7 +129,7 @@ export function NotePagePager({ note }: Props) {
       ) : null}
 
       <View style={styles.pagerWrap} {...(Platform.OS === 'web' ? { onWheel: handleWheel } : {})}>
-        {pages.length > 1 && currentPage > 0 ? (
+        {Platform.OS === 'web' && pages.length > 1 && currentPage > 0 ? (
           <Pressable
             onPress={() => goToPage(currentPage - 1)}
             style={({ pressed }) => [styles.navButton, styles.navLeft, { opacity: pressed ? 0.7 : 1 }]}>
@@ -163,7 +163,7 @@ export function NotePagePager({ note }: Props) {
           ))}
         </ScrollView>
 
-        {pages.length > 1 && currentPage < pages.length - 1 ? (
+        {Platform.OS === 'web' && pages.length > 1 && currentPage < pages.length - 1 ? (
           <Pressable
             onPress={() => goToPage(currentPage + 1)}
             style={({ pressed }) => [styles.navButton, styles.navRight, { opacity: pressed ? 0.7 : 1 }]}>
