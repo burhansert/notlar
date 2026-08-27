@@ -2,11 +2,20 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlyphSvg } from '@/components/GlyphSvg';
-import { TURKISH_LETTERS, type TurkishLetter } from '@/constants/turkish-alphabet';
+import {
+  TURKISH_LETTER_PAIRS,
+  TURKISH_LETTERS,
+  resolveTurkishLetter,
+  type TurkishLetter,
+} from '@/constants/turkish-alphabet';
 import { colors, radius, spacing } from '@/constants/theme';
 import type { HandwritingGlyph, Stroke } from '@/lib/types';
 
-const PREVIEW_SIZE = 64;
+const PREVIEW_SIZE = 44;
+
+function hasStrokes(strokes?: Stroke[]) {
+  return Boolean(strokes && strokes.length > 0);
+}
 
 function GlyphPreview({
   letter,
@@ -28,6 +37,31 @@ function GlyphPreview({
   );
 }
 
+function LetterCaseCell({
+  letter,
+  strokes,
+  onPress,
+}: {
+  letter: TurkishLetter;
+  strokes?: Stroke[];
+  onPress: () => void;
+}) {
+  const completed = hasStrokes(strokes);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.caseCell,
+        completed ? styles.caseCellDone : null,
+        { opacity: pressed ? 0.85 : 1 },
+      ]}>
+      <GlyphPreview letter={letter} strokes={strokes} completed={completed} />
+      {completed ? <View style={styles.dot} /> : <Text style={styles.caseLabel}>{letter}</Text>}
+    </Pressable>
+  );
+}
+
 export function LetterGrid({
   glyphs,
   onPressLetter,
@@ -36,9 +70,12 @@ export function LetterGrid({
   onPressLetter: (letter: TurkishLetter) => void;
 }) {
   const glyphMap = useMemo(() => {
-    const map = new Map<string, HandwritingGlyph>();
+    const map = new Map<TurkishLetter, HandwritingGlyph>();
     for (const glyph of glyphs) {
-      map.set(glyph.letter, glyph);
+      const letter = resolveTurkishLetter(glyph.letter);
+      if (letter) {
+        map.set(letter, glyph);
+      }
     }
     return map;
   }, [glyphs]);
@@ -57,28 +94,29 @@ export function LetterGrid({
       <View style={styles.header}>
         <Text style={styles.title}>Türkçe Alfabe</Text>
         <Text style={styles.subtitle}>
-          {completedCount} / {TURKISH_LETTERS.length} harf tamamlandı
+          {completedCount} / {TURKISH_LETTERS.length} harf tamamlandı (küçük + büyük)
         </Text>
       </View>
       <View style={styles.grid}>
-        {TURKISH_LETTERS.map((letter) => {
-          const glyph = glyphMap.get(letter);
-          const strokes = glyph?.stroke_data ?? [];
-          const completed = strokes.length > 0;
+        {TURKISH_LETTER_PAIRS.map(({ lower, upper }) => {
+          const lowerGlyph = glyphMap.get(lower);
+          const upperGlyph = glyphMap.get(upper);
+          const pairDone = hasStrokes(lowerGlyph?.stroke_data) && hasStrokes(upperGlyph?.stroke_data);
 
           return (
-            <Pressable
-              key={letter}
-              onPress={() => onPressLetter(letter)}
-              style={({ pressed }) => [
-                styles.cell,
-                completed ? styles.cellDone : null,
-                { opacity: pressed ? 0.85 : 1 },
-              ]}>
-              <GlyphPreview letter={letter} strokes={strokes} completed={completed} />
-              {completed ? null : <Text style={styles.cellLabel}>{letter}</Text>}
-              {completed ? <View style={styles.dot} /> : null}
-            </Pressable>
+            <View key={lower} style={[styles.pairCell, pairDone ? styles.pairCellDone : null]}>
+              <LetterCaseCell
+                letter={lower}
+                strokes={lowerGlyph?.stroke_data}
+                onPress={() => onPressLetter(lower)}
+              />
+              <View style={styles.pairDivider} />
+              <LetterCaseCell
+                letter={upper}
+                strokes={upperGlyph?.stroke_data}
+                onPress={() => onPressLetter(upper)}
+              />
+            </View>
           );
         })}
       </View>
@@ -108,25 +146,36 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
-  cell: {
-    width: '18%',
-    minWidth: 72,
-    aspectRatio: 0.9,
+  pairCell: {
+    width: '30%',
+    minWidth: 108,
+    flexDirection: 'row',
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
+    overflow: 'hidden',
+  },
+  pairCellDone: {
+    borderColor: colors.forest,
+    backgroundColor: colors.forestSoft,
+  },
+  pairDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+  },
+  caseCell: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
     gap: 4,
   },
-  cellDone: {
-    borderColor: colors.forest,
-    backgroundColor: colors.forestSoft,
+  caseCellDone: {
+    backgroundColor: 'transparent',
   },
-  cellLabel: {
-    fontSize: 13,
+  caseLabel: {
+    fontSize: 12,
     fontWeight: '700',
     color: colors.ink,
   },
@@ -146,7 +195,7 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   previewLetter: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: colors.muted,
   },

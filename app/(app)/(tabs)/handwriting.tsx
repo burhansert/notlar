@@ -78,8 +78,8 @@ export default function HandwritingScreen() {
           <View style={styles.hero}>
             <Text style={styles.heroTitle}>Kendi el yazın fontunuzu oluşturun</Text>
             <Text style={styles.heroText}>
-              Her harfe dokunarak kendi çiziminizi kaydedin. Font yalnızca sizin hesabınıza
-              aittir.
+              Her harfin küçük ve büyük halini çizerek kendi fontunuzu oluşturun. Font yalnızca
+              sizin hesabınıza aittir.
             </Text>
           </View>
 
@@ -96,10 +96,10 @@ export default function HandwritingScreen() {
             <HandwritingTextPreview text={previewInput} glyphMap={glyphMap} />
             <Text style={styles.previewMeta}>
               {completedCount === 0
-                ? 'Önce harfleri çizerek fontunuzu oluşturun.'
+                ? 'Önce küçük ve büyük harfleri çizerek fontunuzu oluşturun.'
                 : completedCount === TURKISH_LETTERS.length
                   ? 'Tüm harfler hazır. Metniniz tamamen el yazınızla görünür.'
-                  : 'Çizilmemiş harfler soluk görünür; tamamladıkça el yazınızla değişir.'}
+                  : 'Çizilmemiş harfler soluk görünür; küçük ve büyük harfleri tamamladıkça el yazınızla değişir.'}
             </Text>
           </View>
 
