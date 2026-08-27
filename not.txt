@@ -1,0 +1,12 @@
+Geliştirme sunucusu
+
+npx expo start
+
+npm run web
+
+
+Statik dist ile çalıştırma
+
+npm run build
+
+npx serve dist
