@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, shadow, spacing } from '@/constants/theme';
@@ -7,35 +8,47 @@ import type { Note } from '@/lib/types';
 export function NoteCard({
   note,
   onPress,
+  onViewPress,
   author,
 }: {
   note: Note;
   onPress: () => void;
+  onViewPress?: () => void;
   author?: string;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, shadow.card, { opacity: pressed ? 0.85 : 1 }]}>
-      <View style={styles.stripe} />
-      <View style={styles.body}>
-        <Text style={styles.title} numberOfLines={1}>
-          {note.title.trim() || 'Başlıksız not'}
-        </Text>
-        <Text style={styles.preview} numberOfLines={3}>
-          {previewText(note.content) || 'Henüz içerik yok.'}
-        </Text>
-        <View style={styles.meta}>
-          <Text style={styles.date}>{formatDateTime(note.updated_at)}</Text>
-          {author ? <Text style={styles.author}>{author}</Text> : null}
-        </View>
-        {note.notebook_title || note.section_title ? (
-          <Text style={styles.context} numberOfLines={1}>
-            {[note.notebook_title, note.section_title].filter(Boolean).join(' · ')}
+    <View style={[styles.card, shadow.card]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.main, { opacity: pressed ? 0.85 : 1 }]}>
+        <View style={styles.stripe} />
+        <View style={styles.body}>
+          <Text style={styles.title} numberOfLines={1}>
+            {note.title.trim() || 'Başlıksız not'}
           </Text>
-        ) : null}
-      </View>
-    </Pressable>
+          <Text style={styles.preview} numberOfLines={3}>
+            {previewText(note.content) || 'Henüz içerik yok.'}
+          </Text>
+          <View style={styles.meta}>
+            <Text style={styles.date}>{formatDateTime(note.updated_at)}</Text>
+            {author ? <Text style={styles.author}>{author}</Text> : null}
+          </View>
+          {note.notebook_title || note.section_title ? (
+            <Text style={styles.context} numberOfLines={1}>
+              {[note.notebook_title, note.section_title].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+      {onViewPress ? (
+        <Pressable
+          onPress={onViewPress}
+          hitSlop={12}
+          style={({ pressed }) => [styles.viewButton, { opacity: pressed ? 0.7 : 1 }]}>
+          <Ionicons name="eye" size={22} color={colors.ink} />
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -45,17 +58,30 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     overflow: 'hidden',
     flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  main: {
+    flex: 1,
+    flexDirection: 'row',
+    overflow: 'hidden',
   },
   stripe: {
     width: 6,
     backgroundColor: colors.forest,
+    alignSelf: 'stretch',
   },
   body: {
     flex: 1,
     padding: spacing.md,
     gap: 6,
+  },
+  viewButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 17,
