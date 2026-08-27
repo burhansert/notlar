@@ -19,26 +19,22 @@ export function NotePageContent({
   showHeader,
   width,
   pageHeight,
-  bodyMaxHeight,
 }: {
   note: Note;
   content: string;
   showHeader: boolean;
   width: number;
   pageHeight: number;
-  bodyMaxHeight: number;
 }) {
   return (
     <View style={[styles.page, { width, height: pageHeight }]}>
       <View style={styles.inner}>
         {showHeader ? (
-          <View style={styles.header}>
-            <Text selectable={false} style={styles.title}>
-              {note.title.trim() || 'Başlıksız not'}
-            </Text>
-          </View>
+          <Text selectable={false} style={styles.title}>
+            {note.title.trim() || 'Başlıksız not'}
+          </Text>
         ) : null}
-        <View style={[styles.bodyCard, { height: bodyMaxHeight, maxHeight: bodyMaxHeight }]}>
+        <View style={styles.bodyCard}>
           <Text selectable={false} style={[styles.body, WEB_NO_SELECT]}>
             {content}
           </Text>
@@ -80,11 +76,7 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    paddingTop: spacing.lg,
-    gap: spacing.sm,
-  },
-  header: {
+    paddingVertical: spacing.lg,
     gap: spacing.sm,
   },
   title: {
@@ -94,6 +86,7 @@ const styles = StyleSheet.create({
     lineHeight: 34,
   },
   bodyCard: {
+    flex: 1,
     backgroundColor: colors.card,
     borderRadius: radius.md,
     borderWidth: 1,

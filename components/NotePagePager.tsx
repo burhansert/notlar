@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Platform,
   ScrollView,
   StyleSheet,
@@ -20,11 +19,14 @@ import {
 } from '@/components/NotePageContent';
 import { colors, spacing } from '@/constants/theme';
 import { formatDateTime } from '@/lib/format';
-import { groupLinesIntoPages, linesPerPage, NOTE_BODY_LINE_HEIGHT } from '@/lib/notePagination';
+import {
+  DEFAULT_TITLE_HEADER_HEIGHT,
+  paginateContent,
+  pageLayoutMetrics,
+} from '@/lib/notePagination';
 import type { Note } from '@/lib/types';
 
 const TOP_BAR_HEIGHT = 36;
-const MEASURE_TIMEOUT_MS = 400;
 
 const WEB_NO_SELECT =
   Platform.OS === 'web'
@@ -40,52 +42,49 @@ type Props = {
 };
 
 export function NotePagePager({ note }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const wheelLockRef = useRef(false);
   const [pagerHeight, setPagerHeight] = useState(0);
-  const [headerHeight, setHeaderHeight] = useState(0);
-  const [pages, setPages] = useState<string[] | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(DEFAULT_TITLE_HEADER_HEIGHT);
+  const [measuredPages, setMeasuredPages] = useState<string[] | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
 
   const content = note.content.trim() || 'Henüz içerik yok.';
   const bodyWidth = width - spacing.lg * 2 - spacing.md * 2;
-  const showPageCount = (pages?.length ?? 0) > 1;
+  const layoutKey = `${note.id}:${width}:${height}:${pagerHeight}:${headerHeight}`;
 
-  const layout = useMemo(() => {
-    const pagePadding = spacing.lg * 2 + spacing.sm;
-    const bodyPadding = spacing.md * 2;
-    const firstBodyHeight =
-      pagerHeight - headerHeight - pagePadding - bodyPadding;
-    const nextBodyHeight = pagerHeight - spacing.lg - spacing.lg - bodyPadding;
-
+  const capacities = useMemo(() => {
+    if (pagerHeight <= 0) {
+      return { firstPageCapacity: 1, nextPageCapacity: 1 };
+    }
+    const metrics = pageLayoutMetrics(pagerHeight, headerHeight);
     return {
-      firstBodyHeight: Math.max(NOTE_BODY_LINE_HEIGHT, firstBodyHeight),
-      nextBodyHeight: Math.max(NOTE_BODY_LINE_HEIGHT, nextBodyHeight),
-      firstPageCapacity: linesPerPage(firstBodyHeight),
-      nextPageCapacity: linesPerPage(nextBodyHeight),
+      firstPageCapacity: metrics.firstPageCapacity,
+      nextPageCapacity: metrics.nextPageCapacity,
     };
   }, [headerHeight, pagerHeight]);
 
+  const estimatedPages = useMemo(() => {
+    if (pagerHeight <= 0) return [content];
+    return paginateContent(content, {
+      bodyWidth,
+      firstPageCapacity: capacities.firstPageCapacity,
+      nextPageCapacity: capacities.nextPageCapacity,
+    });
+  }, [bodyWidth, capacities.firstPageCapacity, capacities.nextPageCapacity, content, pagerHeight]);
+
+  const pages = measuredPages ?? estimatedPages;
+  const showPageCount = pages.length > 1;
+
   useEffect(() => {
-    setPages(null);
+    setMeasuredPages(null);
     setCurrentPage(0);
-    setHeaderHeight(0);
     scrollRef.current?.scrollTo({ x: 0, animated: false });
-  }, [note.id, width]);
+  }, [layoutKey]);
 
   useEffect(() => {
-    if (pages !== null || pagerHeight <= 0 || headerHeight <= 0) return;
-
-    const timeout = setTimeout(() => {
-      setPages((current) => current ?? [content]);
-    }, MEASURE_TIMEOUT_MS);
-
-    return () => clearTimeout(timeout);
-  }, [content, headerHeight, pages, pagerHeight]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !pages || pages.length <= 1) return;
+    if (Platform.OS !== 'web' || pages.length <= 1) return;
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'ArrowLeft') {
@@ -98,38 +97,36 @@ export function NotePagePager({ note }: Props) {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [currentPage, pages]);
+  }, [currentPage, pages.length]);
 
   function handlePagerLayout(event: LayoutChangeEvent) {
-    const nextHeight = event.nativeEvent.layout.height;
-    if (nextHeight !== pagerHeight) {
+    const nextHeight = Math.floor(event.nativeEvent.layout.height);
+    if (nextHeight > 0 && nextHeight !== pagerHeight) {
       setPagerHeight(nextHeight);
     }
   }
 
-  function handleHeaderMeasure(height: number) {
-    if (height !== headerHeight) {
-      setHeaderHeight(height);
+  function handleHeaderMeasure(nextHeight: number) {
+    if (nextHeight > 0 && nextHeight !== headerHeight) {
+      setHeaderHeight(nextHeight);
     }
   }
 
   function handleTextMeasure(event: TextLayoutEvent) {
-    if (pagerHeight <= 0 || headerHeight <= 0) return;
+    if (pagerHeight <= 0) return;
 
     const lineTexts = event.nativeEvent.lines.map((line) => line.text);
-    const grouped = groupLinesIntoPages(lineTexts, {
-      firstPageCapacity: layout.firstPageCapacity,
-      nextPageCapacity: layout.nextPageCapacity,
+    const grouped = paginateContent(content, {
+      bodyWidth,
+      firstPageCapacity: capacities.firstPageCapacity,
+      nextPageCapacity: capacities.nextPageCapacity,
+      lineTexts,
     });
-    setPages(grouped);
+    setMeasuredPages(grouped);
   }
 
   function syncPageFromOffset(offsetX: number) {
-    if (!pages?.length) return;
-    const nextPage = Math.min(
-      pages.length - 1,
-      Math.max(0, Math.round(offsetX / width))
-    );
+    const nextPage = Math.min(pages.length - 1, Math.max(0, Math.round(offsetX / width)));
     setCurrentPage((prev) => (prev === nextPage ? prev : nextPage));
   }
 
@@ -142,14 +139,13 @@ export function NotePagePager({ note }: Props) {
   }
 
   function goToPage(page: number) {
-    if (!pages?.length) return;
     const nextPage = Math.min(pages.length - 1, Math.max(0, page));
     scrollRef.current?.scrollTo({ x: nextPage * width, animated: true });
     setCurrentPage(nextPage);
   }
 
   function handleWheel(event: NativeSyntheticEvent<WheelEvent>) {
-    if (Platform.OS !== 'web' || !pages || pages.length <= 1) return;
+    if (Platform.OS !== 'web' || pages.length <= 1) return;
 
     const nativeEvent = event.nativeEvent as unknown as WheelEvent;
     nativeEvent.preventDefault();
@@ -168,7 +164,7 @@ export function NotePagePager({ note }: Props) {
     }, 350);
   }
 
-  const ready = pages !== null && pagerHeight > 0 && headerHeight > 0;
+  const canRender = pagerHeight > 0 && width > 0;
 
   return (
     <View style={[styles.container, WEB_NO_SELECT]}>
@@ -179,7 +175,7 @@ export function NotePagePager({ note }: Props) {
           </Text>
           {showPageCount ? (
             <Text selectable={false} style={styles.pageCount}>
-              {currentPage + 1} / {pages?.length}
+              {currentPage + 1} / {pages.length}
             </Text>
           ) : null}
         </View>
@@ -189,35 +185,25 @@ export function NotePagePager({ note }: Props) {
         style={styles.pagerWrap}
         onLayout={handlePagerLayout}
         {...(Platform.OS === 'web' ? { onWheel: handleWheel } : {})}>
-        {pagerHeight > 0 ? (
-          <View style={styles.measureLayer} pointerEvents="none">
-            <NotePageHeaderMeasure
-              note={note}
-              width={width}
-              onLayout={handleHeaderMeasure}
-            />
-            {headerHeight > 0 ? (
-              <Text
-                key={`${note.id}-${headerHeight}-${bodyWidth}`}
-                style={[noteBodyTextStyle, { width: bodyWidth, marginLeft: spacing.lg + spacing.md }]}
-                onTextLayout={handleTextMeasure}>
-                {content}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
+        <View style={styles.measureLayer} pointerEvents="none">
+          <NotePageHeaderMeasure note={note} width={width} onLayout={handleHeaderMeasure} />
+          {canRender ? (
+            <Text
+              key={layoutKey}
+              style={[noteBodyTextStyle, styles.measureText, { width: bodyWidth }]}
+              onTextLayout={handleTextMeasure}>
+              {content}
+            </Text>
+          ) : null}
+        </View>
 
-        {!ready ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color={colors.forest} />
-          </View>
-        ) : (
+        {canRender ? (
           <ScrollView
             ref={scrollRef}
             horizontal
             pagingEnabled
             decelerationRate="normal"
-            showsHorizontalScrollIndicator={false}
+            showsHorizontalScrollIndicator={Platform.OS === 'web'}
             scrollEventThrottle={16}
             onScroll={handleScroll}
             onScrollEndDrag={handleScrollEnd}
@@ -226,17 +212,16 @@ export function NotePagePager({ note }: Props) {
             contentContainerStyle={styles.pagerContent}>
             {pages.map((page, index) => (
               <NotePageContent
-                key={`${note.id}-${index}`}
+                key={`${layoutKey}-${index}`}
                 note={note}
                 content={page}
                 showHeader={index === 0}
                 width={width}
                 pageHeight={pagerHeight}
-                bodyMaxHeight={index === 0 ? layout.firstBodyHeight : layout.nextBodyHeight}
               />
             ))}
           </ScrollView>
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -273,27 +258,24 @@ const styles = StyleSheet.create({
   },
   measureLayer: {
     position: 'absolute',
-    opacity: 0,
+    left: -10000,
     top: 0,
-    left: 0,
-    right: 0,
-    zIndex: -1,
+    width: '100%',
   },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  measureText: {
+    paddingHorizontal: spacing.lg + spacing.md,
   },
   pager: {
     flex: 1,
   },
   pagerWeb: {
-    overflow: 'auto',
+    overflowX: 'auto',
+    overflowY: 'hidden',
     cursor: 'grab',
     overscrollBehavior: 'contain',
     scrollSnapType: 'x mandatory',
   } as object,
   pagerContent: {
-    flexGrow: 1,
+    alignItems: 'stretch',
   },
 });
