@@ -13,8 +13,14 @@ import {
 
 import { GlyphSizeSlider } from '@/components/GlyphSizeSlider';
 import { HandwritingTextPreview } from '@/components/HandwritingTextPreview';
-import { DEFAULT_HANDWRITING_GLYPH_SIZE } from '@/constants/handwriting';
+import {
+  DEFAULT_HANDWRITING_GLYPH_SIZE,
+  MAX_HANDWRITING_GLYPH_SIZE,
+  MIN_HANDWRITING_GLYPH_SIZE,
+} from '@/constants/handwriting';
 import { colors, radius, spacing } from '@/constants/theme';
+import { getHandwritingGlyphSize, setHandwritingGlyphSize } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { formatDateTime } from '@/lib/format';
 import {
   handwritingPageLayoutMetrics,
@@ -92,6 +98,7 @@ function HandwritingHeaderMeasure({
 }
 
 export function HandwritingNotePager({ note, glyphMap }: Props) {
+  const { session } = useAuth();
   const { width, height } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const scrollXRef = useRef(0);
@@ -100,11 +107,75 @@ export function HandwritingNotePager({ note, glyphMap }: Props) {
   const pagesRef = useRef<string[]>([]);
   const widthRef = useRef(width);
   const currentPageRef = useRef(0);
+  const skipNextSaveRef = useRef(true);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pagerHeight, setPagerHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(DEFAULT_TITLE_HEADER_HEIGHT);
   const [glyphSize, setGlyphSize] = useState(DEFAULT_HANDWRITING_GLYPH_SIZE);
+  const [glyphSizeReady, setGlyphSizeReady] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    skipNextSaveRef.current = true;
+    setGlyphSizeReady(false);
+
+    if (!session?.token) {
+      setGlyphSizeReady(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    getHandwritingGlyphSize(session.token)
+      .then((savedSize) => {
+        if (cancelled) return;
+        if (
+          typeof savedSize === 'number' &&
+          savedSize >= MIN_HANDWRITING_GLYPH_SIZE &&
+          savedSize <= MAX_HANDWRITING_GLYPH_SIZE
+        ) {
+          setGlyphSize(savedSize);
+        }
+      })
+      .catch(() => {
+        // Kayıtlı değer okunamazsa varsayılan boyut kullanılır.
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setGlyphSizeReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.token]);
+
+  useEffect(() => {
+    if (!session?.token || !glyphSizeReady) return;
+
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false;
+      return;
+    }
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = setTimeout(() => {
+      setHandwritingGlyphSize(session.token, glyphSize).catch(() => {
+        // Kayıt başarısız olursa yerel değer kullanılmaya devam eder.
+      });
+    }, 400);
+
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, [glyphSize, glyphSizeReady, session?.token]);
 
   const content = note.content.trim() || 'Henüz içerik yok.';
   const bodyWidth = width - spacing.lg * 2 - spacing.md * 2;

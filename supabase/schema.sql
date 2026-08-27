@@ -23,6 +23,7 @@ create table public.users (
   password text not null,
   role text not null default 'user' check (role in ('user', 'admin')),
   is_active boolean not null default true,
+  handwriting_glyph_size integer not null default 40 check (handwriting_glyph_size between 28 and 56),
   created_at timestamptz not null default now(),
   constraint email_format check (email ~* '^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$')
 );
@@ -1048,6 +1049,46 @@ begin
 end;
 $$;
 
+create or replace function public.get_handwriting_glyph_size(p_token uuid)
+returns integer
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  found_user public.users;
+begin
+  found_user := private.user_from_token(p_token);
+  return found_user.handwriting_glyph_size;
+end;
+$$;
+
+create or replace function public.set_handwriting_glyph_size(p_token uuid, p_glyph_size integer)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  found_user public.users;
+  saved_size integer;
+begin
+  found_user := private.user_from_token(p_token);
+
+  if p_glyph_size is null or p_glyph_size < 28 or p_glyph_size > 56 then
+    raise exception 'Geçerli bir yazı boyutu seçin.';
+  end if;
+
+  update public.users
+  set handwriting_glyph_size = p_glyph_size
+  where id = found_user.id
+  returning handwriting_glyph_size into saved_size;
+
+  return saved_size;
+end;
+$$;
+
 alter table public.users enable row level security;
 alter table public.sessions enable row level security;
 alter table public.notebooks enable row level security;
@@ -1087,5 +1128,7 @@ grant execute on function public.list_handwriting_glyphs(uuid) to anon, authenti
 grant execute on function public.get_handwriting_glyph(uuid, text) to anon, authenticated;
 grant execute on function public.upsert_handwriting_glyph(uuid, text, jsonb) to anon, authenticated;
 grant execute on function public.delete_handwriting_glyph(uuid, text) to anon, authenticated;
+grant execute on function public.get_handwriting_glyph_size(uuid) to anon, authenticated;
+grant execute on function public.set_handwriting_glyph_size(uuid, integer) to anon, authenticated;
 
 notify pgrst, 'reload schema';
