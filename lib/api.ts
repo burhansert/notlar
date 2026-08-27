@@ -97,12 +97,18 @@ export async function getNote(token: string, id: string) {
   return note;
 }
 
-export function createNote(token: string, sectionId: string, title: string, content: string) {
+export function createNote(
+  token: string,
+  title: string,
+  content: string,
+  options?: { sectionId?: string; notebookId?: string }
+) {
   return rpc<Note>('create_note', {
     p_token: token,
-    p_section_id: sectionId,
     p_title: title,
     p_content: content,
+    p_section_id: options?.sectionId ?? null,
+    p_notebook_id: options?.notebookId ?? null,
   });
 }
 

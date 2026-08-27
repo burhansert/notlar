@@ -119,7 +119,7 @@ export default function SectionNotesScreen() {
       <Pressable
         onPress={() =>
           router.push(
-            `/note/new?sectionId=${sectionId}&notebookId=${notebookId}&sectionTitle=${encodeURIComponent(headerTitle)}&notebookTitle=${encodeURIComponent(notebookTitle?.trim() || 'Not defteri')}` as Href
+            `/note/new?sectionId=${sectionId}&notebookId=${notebookId}` as Href
           )
         }
         style={({ pressed }) => [styles.fab, shadow.card, { opacity: pressed ? 0.85 : 1 }]}>

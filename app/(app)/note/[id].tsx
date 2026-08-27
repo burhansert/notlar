@@ -24,11 +24,13 @@ export default function NoteEditorScreen() {
   const {
     id,
     sectionId: routeSectionId,
+    notebookId: routeNotebookId,
     notebookTitle: routeNotebookTitle,
     sectionTitle: routeSectionTitle,
   } = useLocalSearchParams<{
     id: string;
     sectionId?: string;
+    notebookId?: string;
     notebookTitle?: string;
     sectionTitle?: string;
   }>();
@@ -80,15 +82,13 @@ export default function NoteEditorScreen() {
       return;
     }
 
-    if (!selectedSectionId) {
-      Alert.alert('Konum seçilmedi', 'Not için bir bölüm seçin.');
-      return;
-    }
-
     setSaving(true);
     try {
       if (isNew) {
-        await createNote(session.token, selectedSectionId, title.trim(), content.trim());
+        await createNote(session.token, title.trim(), content.trim(), {
+          sectionId: selectedSectionId,
+          notebookId: routeNotebookId,
+        });
       } else if (id) {
         await updateNote(session.token, id, title.trim(), content.trim(), selectedSectionId);
       }
@@ -124,7 +124,7 @@ export default function NoteEditorScreen() {
       ? `${notebookTitle} · ${sectionTitle}`
       : selectedSectionId
         ? 'Bölüm seçildi'
-        : 'Bölüm ve not defteri seç';
+        : 'Otomatik yerleştirilecek';
 
   return (
     <View style={styles.container}>

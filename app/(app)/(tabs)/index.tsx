@@ -87,6 +87,14 @@ export default function NotebooksScreen() {
     setMenuTarget(notebook);
   }
 
+  function openFabMenu() {
+    Alert.alert('Yeni oluştur', 'Ne oluşturmak istersiniz?', [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Not defteri', onPress: () => setCreateOpen(true) },
+      { text: 'Not', onPress: () => router.push('/note/new' as Href) },
+    ]);
+  }
+
   async function handleDelete() {
     if (!session?.token || !deleteTarget) return;
     const target = deleteTarget;
@@ -136,7 +144,7 @@ export default function NotebooksScreen() {
               subtitle={
                 query
                   ? 'Farklı bir arama deneyin.'
-                  : 'İlk not defterinizi oluşturmak için + düğmesine dokunun.'
+                  : 'İlk not defterinizi veya notunuzu oluşturmak için + düğmesine dokunun.'
               }
             />
           }
@@ -154,7 +162,7 @@ export default function NotebooksScreen() {
         />
       )}
       <Pressable
-        onPress={() => setCreateOpen(true)}
+        onPress={openFabMenu}
         style={({ pressed }) => [styles.fab, shadow.card, { opacity: pressed ? 0.85 : 1 }]}>
         <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>

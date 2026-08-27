@@ -104,6 +104,17 @@ export default function SectionsScreen() {
     setMenuTarget(section);
   }
 
+  function openFabMenu() {
+    Alert.alert('Yeni oluştur', 'Ne oluşturmak istersiniz?', [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Bölüm', onPress: () => setCreateOpen(true) },
+      {
+        text: 'Not',
+        onPress: () => router.push(`/note/new?notebookId=${notebookId}` as Href),
+      },
+    ]);
+  }
+
   async function handleDelete() {
     if (!session?.token || !deleteTarget) return;
     const target = deleteTarget;
@@ -154,7 +165,7 @@ export default function SectionsScreen() {
               subtitle={
                 query
                   ? 'Farklı bir arama deneyin.'
-                  : 'İlk bölümünüzü oluşturmak için + düğmesine dokunun.'
+                  : 'İlk bölümünüzü veya notunuzu oluşturmak için + düğmesine dokunun.'
               }
             />
           }
@@ -172,7 +183,7 @@ export default function SectionsScreen() {
         />
       )}
       <Pressable
-        onPress={() => setCreateOpen(true)}
+        onPress={openFabMenu}
         style={({ pressed }) => [styles.fab, shadow.card, { opacity: pressed ? 0.85 : 1 }]}>
         <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>
