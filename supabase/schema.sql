@@ -1,6 +1,9 @@
 -- Notlar: Supabase Auth KULLANILMAZ.
 -- E-posta ve şifre public.users tablosuna düz metin olarak yazılır.
--- Supabase SQL Editor'de tek seferde çalıştırın.
+--
+-- UYARI: Bu dosya sıfırdan kurulum içindir (DROP TABLE ile tüm veriyi siler).
+-- Verisi olan bir Supabase projesinde ÇALIŞTIRMAYIN.
+-- Mevcut DB güncellemeleri için supabase/migrations/ altındaki dosyaları kullanın.
 
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
