@@ -134,7 +134,6 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
     gap: spacing.md,
-    flexGrow: 1,
   },
   help: {
     fontSize: 14,
