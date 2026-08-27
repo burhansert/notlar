@@ -59,6 +59,24 @@ export function isTurkishLetter(value: string): value is TurkishLetter {
   return TURKISH_LETTER_SET.has(value);
 }
 
+export const HANDWRITING_SYMBOL_SLUGS = {
+  '.': 'sym-dot',
+  ',': 'sym-comma',
+  ':': 'sym-colon',
+  ';': 'sym-semicolon',
+  '!': 'sym-exclamation',
+  '(': 'sym-lparen',
+  ')': 'sym-rparen',
+} as const satisfies Record<HandwritingSymbol, string>;
+
+const SLUG_TO_HANDWRITING_SYMBOL = Object.fromEntries(
+  Object.entries(HANDWRITING_SYMBOL_SLUGS).map(([symbol, slug]) => [slug, symbol])
+) as Record<string, HandwritingSymbol>;
+
+export function isHandwritingSymbol(value: string): value is HandwritingSymbol {
+  return (HANDWRITING_SYMBOLS as readonly string[]).includes(value);
+}
+
 export function isHandwritingCharacter(value: string): value is HandwritingCharacter {
   return HANDWRITING_CHARACTER_SET.has(value);
 }
@@ -74,10 +92,18 @@ export function resolveTurkishLetter(value: string): TurkishLetter | null {
 }
 
 export function characterRouteParam(character: HandwritingCharacter) {
+  if (isHandwritingSymbol(character)) {
+    return HANDWRITING_SYMBOL_SLUGS[character];
+  }
   return encodeURIComponent(character);
 }
 
 export function characterFromRouteParam(param: string): HandwritingCharacter | null {
+  const fromSlug = SLUG_TO_HANDWRITING_SYMBOL[param];
+  if (fromSlug) {
+    return fromSlug;
+  }
+
   try {
     const decoded = decodeURIComponent(param);
     return resolveHandwritingCharacter(decoded);
