@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 
 import { colors } from '@/constants/theme';
+import { sharedHeaderOptions } from '@/constants/navigation';
 
 export default function AppLayout() {
   return (
@@ -11,6 +12,7 @@ export default function AppLayout() {
         headerShadowVisible: false,
         headerBackButtonDisplayMode: 'minimal',
         contentStyle: { backgroundColor: colors.paper },
+        ...sharedHeaderOptions,
       }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen

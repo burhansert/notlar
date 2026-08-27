@@ -33,6 +33,5 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: -4,
   },
 });
