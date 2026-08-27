@@ -1,5 +1,13 @@
 import { useMemo, useRef, useState } from 'react';
-import { PanResponder, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import {
+  PanResponder,
+  Platform,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+  type ViewStyle,
+} from 'react-native';
+import Svg, { Text as SvgText } from 'react-native-svg';
 
 import { GlyphSvg } from '@/components/GlyphSvg';
 import { colors, radius } from '@/constants/theme';
@@ -11,6 +19,17 @@ function normalizePoint(locationX: number, locationY: number, width: number, hei
     y: Math.min(1, Math.max(0, locationY / height)),
   };
 }
+
+const webCanvasStyle: ViewStyle | undefined =
+  Platform.OS === 'web'
+    ? ({
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+        touchAction: 'none',
+        cursor: 'crosshair',
+      } as unknown as ViewStyle)
+    : undefined;
 
 export function HandwritingCanvas({
   letter,
@@ -37,6 +56,9 @@ export function HandwritingCanvas({
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: (event) => {
           if (size === 0) return;
           const point = normalizePoint(
@@ -67,14 +89,42 @@ export function HandwritingCanvas({
     [onChange, size]
   );
 
+  const guideSize = size * 0.72;
+
   return (
     <View style={styles.wrap}>
-      <View style={styles.canvas} onLayout={onLayout} {...panResponder.panHandlers}>
-        <Text style={[styles.guide, { fontSize: size * 0.72 }]}>{letter}</Text>
+      <View
+        style={[styles.canvas, webCanvasStyle]}
+        onLayout={onLayout}
+        {...panResponder.panHandlers}
+        {...(Platform.OS === 'web'
+          ? {
+              onMouseDown: (event: { preventDefault: () => void }) => event.preventDefault(),
+              onDragStart: (event: { preventDefault: () => void }) => event.preventDefault(),
+            }
+          : {})}>
         {size > 0 ? (
-          <View style={styles.drawingLayer} pointerEvents="none">
-            <GlyphSvg strokes={strokes} size={size} strokeColor={colors.ink} normalize={false} />
-          </View>
+          <>
+            <Svg
+              width={size}
+              height={size}
+              style={styles.guideLayer}
+              pointerEvents="none">
+              <SvgText
+                x={size / 2}
+                y={size * 0.68}
+                fontSize={guideSize}
+                fontWeight="800"
+                fill={colors.paperDark}
+                opacity={0.55}
+                textAnchor="middle">
+                {letter}
+              </SvgText>
+            </Svg>
+            <View style={styles.drawingLayer} pointerEvents="none">
+              <GlyphSvg strokes={strokes} size={size} strokeColor={colors.ink} normalize={false} />
+            </View>
+          </>
         ) : null}
       </View>
     </View>
@@ -97,14 +147,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  guide: {
-    position: 'absolute',
-    fontWeight: '800',
-    color: colors.paperDark,
-    opacity: 0.55,
-    includeFontPadding: false,
-    width: '100%',
-    textAlign: 'center',
+  guideLayer: {
+    ...StyleSheet.absoluteFill,
   },
   drawingLayer: {
     ...StyleSheet.absoluteFill,
