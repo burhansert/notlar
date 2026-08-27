@@ -26,16 +26,17 @@ Supabase **SQL Editor**’e `supabase/schema.sql` içeriğini yapıştırıp **R
 
 Bu script:
 
-- `users` (e-posta + hash’lenmiş şifre)
+- `users` (e-posta + düz metin şifre)
 - `sessions`
 - `notes`
 
 tablolarını oluşturur. Authentication ürünü açılmaz.
 
-Kayıt olunca e-posta ve şifre bu tabloya yazılır. Şifre düz metin tutulmaz; `pgcrypto` ile bcrypt hash’lenir.
+Kayıt olunca e-posta ve şifre bu tabloya düz metin olarak yazılır.
 
 Manuel kullanıcı eklemek isterseniz SQL Editor’de:
 
 ```sql
-select public.register_user('admin@ornek.com', 'sifre123');
+insert into public.users (email, password, role)
+values ('admin@ornek.com', 'sifre123', 'admin');
 ```

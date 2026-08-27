@@ -1,8 +1,6 @@
 -- Notlar: Supabase Auth KULLANILMAZ.
--- E-posta ve şifre public.users tablosuna yazılır (şifre bcrypt ile hash'lenir).
+-- E-posta ve şifre public.users tablosuna düz metin olarak yazılır.
 -- Supabase SQL Editor'de tek seferde çalıştırın.
-
-create extension if not exists pgcrypto;
 
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
@@ -16,7 +14,7 @@ drop table if exists public.app_users cascade;
 create table public.users (
   id uuid primary key default gen_random_uuid(),
   email text not null unique,
-  password_hash text not null,
+  password text not null,
   role text not null default 'user' check (role in ('user', 'admin')),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -143,8 +141,8 @@ begin
     next_role := 'admin';
   end if;
 
-  insert into public.users (email, password_hash, role)
-  values (normalized, crypt(p_password, gen_salt('bf')), next_role)
+  insert into public.users (email, password, role)
+  values (normalized, p_password, next_role)
   returning * into new_user;
 
   insert into public.sessions (user_id)
@@ -170,7 +168,7 @@ begin
   from public.users
   where email = lower(trim(p_email));
 
-  if found_user.id is null or found_user.password_hash <> crypt(p_password, found_user.password_hash) then
+  if found_user.id is null or found_user.password <> p_password then
     raise exception 'E-posta veya şifre hatalı.';
   end if;
 

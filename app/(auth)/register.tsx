@@ -50,7 +50,7 @@ export default function RegisterScreen() {
           <BrandMark />
           <View style={styles.form}>
             <Text style={styles.hint}>
-              E-posta ve şifre doğrudan veritabanındaki users tablosuna kaydedilir.
+              E-posta ve şifre users tablosuna düz metin olarak kaydedilir.
               İlk kayıt olan kullanıcı yönetici olur.
             </Text>
             <ErrorBanner message={error} />
