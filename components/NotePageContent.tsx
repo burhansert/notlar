@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/constants/theme';
 import { NOTE_BODY_FONT_SIZE, NOTE_BODY_LINE_HEIGHT } from '@/lib/notePagination';
@@ -21,17 +21,19 @@ export function NotePageContent({
       <View style={styles.inner}>
         {showHeader ? (
           <View style={styles.header}>
-            <Text style={styles.title}>{note.title.trim() || 'Başlıksız not'}</Text>
-            <Text style={styles.meta}>{formatDateTime(note.updated_at)}</Text>
+            <Text selectable={false} style={styles.title}>{note.title.trim() || 'Başlıksız not'}</Text>
+            <Text selectable={false} style={styles.meta}>{formatDateTime(note.updated_at)}</Text>
             {note.notebook_title || note.section_title ? (
-              <Text style={styles.context}>
+              <Text selectable={false} style={styles.context}>
                 {[note.notebook_title, note.section_title].filter(Boolean).join(' · ')}
               </Text>
             ) : null}
           </View>
         ) : null}
         <View style={[styles.bodyCard, !showHeader && styles.bodyCardFull]}>
-          <Text style={styles.body}>{content}</Text>
+          <Text selectable={false} style={[styles.body, Platform.OS === 'web' && styles.bodyWeb]}>
+            {content}
+          </Text>
         </View>
       </View>
     </View>
@@ -83,4 +85,9 @@ const styles = StyleSheet.create({
     lineHeight: NOTE_BODY_LINE_HEIGHT,
     color: colors.ink,
   },
+  bodyWeb: {
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+    WebkitTouchCallout: 'none',
+  } as object,
 });
