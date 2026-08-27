@@ -46,9 +46,10 @@ export function NotePagePager({ note }: Props) {
   const scrollRef = useRef<ScrollView>(null);
   const scrollXRef = useRef(0);
   const wheelLockRef = useRef(false);
-  const dragRef = useRef({ active: false, startX: 0, startScrollX: 0 });
+  const dragRef = useRef({ active: false, startX: 0, startScrollX: 0, startPage: 0 });
   const pagesRef = useRef<string[]>([]);
   const widthRef = useRef(width);
+  const currentPageRef = useRef(0);
   const [pagerHeight, setPagerHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(DEFAULT_TITLE_HEADER_HEIGHT);
   const [measuredPages, setMeasuredPages] = useState<string[] | null>(null);
@@ -84,6 +85,7 @@ export function NotePagePager({ note }: Props) {
 
   pagesRef.current = pages;
   widthRef.current = width;
+  currentPageRef.current = currentPage;
 
   useEffect(() => {
     setMeasuredPages(null);
@@ -110,7 +112,6 @@ export function NotePagePager({ note }: Props) {
 
       scrollRef.current?.scrollTo({ x: nextX, animated: false });
       scrollXRef.current = nextX;
-      syncPageFromOffset(nextX);
     }
 
     function onMouseUp() {
@@ -120,13 +121,18 @@ export function NotePagePager({ note }: Props) {
 
       const pageWidth = widthRef.current;
       const pageCount = pagesRef.current.length;
-      const nextPage = Math.min(
-        pageCount - 1,
-        Math.max(0, Math.round(scrollXRef.current / pageWidth))
-      );
-      scrollRef.current?.scrollTo({ x: nextPage * pageWidth, animated: true });
-      scrollXRef.current = nextPage * pageWidth;
-      setCurrentPage(nextPage);
+      const offset = scrollXRef.current;
+      const moved = offset - dragRef.current.startScrollX;
+      let targetPage = dragRef.current.startPage;
+
+      if (Math.abs(moved) > pageWidth * 0.12) {
+        targetPage += moved > 0 ? 1 : -1;
+      }
+
+      targetPage = Math.min(pageCount - 1, Math.max(0, targetPage));
+      scrollRef.current?.scrollTo({ x: targetPage * pageWidth, animated: true });
+      scrollXRef.current = targetPage * pageWidth;
+      setCurrentPage(targetPage);
     }
 
     window.addEventListener('mousemove', onMouseMove);
@@ -189,10 +195,22 @@ export function NotePagePager({ note }: Props) {
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     scrollXRef.current = event.nativeEvent.contentOffset.x;
+    if (dragRef.current.active) return;
     syncPageFromOffset(event.nativeEvent.contentOffset.x);
   }
 
   function handleScrollEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (Platform.OS === 'web') {
+      const offset = event.nativeEvent.contentOffset.x;
+      const nextPage = Math.min(
+        pages.length - 1,
+        Math.max(0, Math.round(offset / width))
+      );
+      scrollRef.current?.scrollTo({ x: nextPage * width, animated: true });
+      scrollXRef.current = nextPage * width;
+      setCurrentPage(nextPage);
+      return;
+    }
     syncPageFromOffset(event.nativeEvent.contentOffset.x);
   }
 
@@ -214,6 +232,7 @@ export function NotePagePager({ note }: Props) {
       active: true,
       startX: nativeEvent.clientX,
       startScrollX: scrollXRef.current,
+      startPage: currentPageRef.current,
     };
     setDragging(true);
     window.getSelection()?.removeAllRanges();
@@ -278,7 +297,7 @@ export function NotePagePager({ note }: Props) {
           <ScrollView
             ref={scrollRef}
             horizontal
-            pagingEnabled
+            pagingEnabled={Platform.OS !== 'web'}
             decelerationRate="normal"
             showsHorizontalScrollIndicator={Platform.OS === 'web'}
             scrollEventThrottle={16}
@@ -288,7 +307,7 @@ export function NotePagePager({ note }: Props) {
             style={[
               styles.pager,
               Platform.OS === 'web' && styles.pagerWeb,
-              dragging && styles.pagerDragging,
+              dragging && styles.pagerWebDragging,
               WEB_NO_SELECT,
             ]}
             contentContainerStyle={styles.pagerContent}>
@@ -355,10 +374,10 @@ const styles = StyleSheet.create({
     overflowY: 'hidden',
     cursor: 'grab',
     overscrollBehavior: 'contain',
-    scrollSnapType: 'x mandatory',
   } as object,
-  pagerDragging: {
+  pagerWebDragging: {
     cursor: 'grabbing',
+    scrollSnapType: 'none',
   } as object,
   pagerContent: {
     alignItems: 'stretch',
