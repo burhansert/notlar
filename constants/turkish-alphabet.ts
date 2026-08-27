@@ -32,7 +32,25 @@ export const TURKISH_LETTER_PAIRS = [
 
 export const HANDWRITING_DIGITS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] as const;
 
-export const HANDWRITING_SYMBOLS = ['.', ',', ':', ';', '!', '(', ')'] as const;
+export const HANDWRITING_SYMBOLS = [
+  '.',
+  ',',
+  ':',
+  ';',
+  '!',
+  '?',
+  '"',
+  "'",
+  '+',
+  '-',
+  '*',
+  '/',
+  '[',
+  ']',
+  '%',
+  '(',
+  ')',
+] as const;
 
 export const TURKISH_LETTERS_LOWER = TURKISH_LETTER_PAIRS.map((pair) => pair.lower);
 export const TURKISH_LETTERS_UPPER = TURKISH_LETTER_PAIRS.map((pair) => pair.upper);
@@ -65,6 +83,16 @@ export const HANDWRITING_SYMBOL_SLUGS = {
   ':': 'sym-colon',
   ';': 'sym-semicolon',
   '!': 'sym-exclamation',
+  '?': 'sym-question',
+  '"': 'sym-double-quote',
+  "'": 'sym-single-quote',
+  '+': 'sym-plus',
+  '-': 'sym-minus',
+  '*': 'sym-asterisk',
+  '/': 'sym-slash',
+  '[': 'sym-lbracket',
+  ']': 'sym-rbracket',
+  '%': 'sym-percent',
   '(': 'sym-lparen',
   ')': 'sym-rparen',
 } as const satisfies Record<HandwritingSymbol, string>;
