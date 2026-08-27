@@ -22,8 +22,7 @@ import {
 } from '@/lib/handwritingPagination';
 import { DEFAULT_TITLE_HEADER_HEIGHT } from '@/lib/notePagination';
 import type { HandwritingCharacter } from '@/constants/turkish-alphabet';
-import type { Note } from '@/lib/types';
-import type { Stroke } from '@/lib/types';
+import type { Note, Stroke } from '@/lib/types';
 
 const TOP_BAR_HEIGHT = 40;
 
