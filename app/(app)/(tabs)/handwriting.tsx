@@ -6,14 +6,17 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
+import { HandwritingTextPreview } from '@/components/HandwritingTextPreview';
 import { LetterGrid } from '@/components/LetterGrid';
 import { colors, radius, spacing } from '@/constants/theme';
 import { letterRouteParam, TURKISH_LETTERS, type TurkishLetter } from '@/constants/turkish-alphabet';
 import { listHandwritingGlyphs } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { buildGlyphMap } from '@/lib/handwriting';
 import type { HandwritingGlyph } from '@/lib/types';
 
 export default function HandwritingScreen() {
@@ -22,6 +25,7 @@ export default function HandwritingScreen() {
   const [glyphs, setGlyphs] = useState<HandwritingGlyph[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [previewInput, setPreviewInput] = useState('Merhaba dünya');
 
   const load = useCallback(async () => {
     if (!session?.token) {
@@ -46,29 +50,9 @@ export default function HandwritingScreen() {
     }, [load])
   );
 
-  const glyphMap = useMemo(() => {
-    const map = new Map<string, HandwritingGlyph>();
-    for (const glyph of glyphs) {
-      map.set(glyph.letter, glyph);
-    }
-    return map;
-  }, [glyphs]);
+  const glyphMap = useMemo(() => buildGlyphMap(glyphs), [glyphs]);
 
-  const previewText = useMemo(() => {
-    return TURKISH_LETTERS.map((letter) => {
-      const glyph = glyphMap.get(letter);
-      return glyph && glyph.stroke_data.length > 0 ? letter : '·';
-    }).join('');
-  }, [glyphMap]);
-
-  const completedCount = useMemo(
-    () =>
-      TURKISH_LETTERS.filter((letter) => {
-        const glyph = glyphMap.get(letter);
-        return glyph && glyph.stroke_data.length > 0;
-      }).length,
-    [glyphMap]
-  );
+  const completedCount = useMemo(() => glyphMap.size, [glyphMap]);
 
   function openLetter(letter: TurkishLetter) {
     router.push(`/handwriting/${letterRouteParam(letter)}` as Href);
@@ -101,11 +85,21 @@ export default function HandwritingScreen() {
 
           <View style={styles.previewCard}>
             <Text style={styles.previewLabel}>Font önizleme</Text>
-            <Text style={styles.previewValue}>{previewText}</Text>
+            <TextInput
+              value={previewInput}
+              onChangeText={setPreviewInput}
+              placeholder="Metninizi yazın…"
+              placeholderTextColor={colors.muted}
+              style={styles.previewInput}
+              multiline
+            />
+            <HandwritingTextPreview text={previewInput} glyphMap={glyphMap} />
             <Text style={styles.previewMeta}>
-              {completedCount === TURKISH_LETTERS.length
-                ? 'Tüm harfler hazır!'
-                : 'Tamamlanan harfler büyük, eksik harfler nokta ile gösterilir.'}
+              {completedCount === 0
+                ? 'Önce harfleri çizerek fontunuzu oluşturun.'
+                : completedCount === TURKISH_LETTERS.length
+                  ? 'Tüm harfler hazır. Metniniz tamamen el yazınızla görünür.'
+                  : 'Çizilmemiş harfler soluk görünür; tamamladıkça el yazınızla değişir.'}
             </Text>
           </View>
 
@@ -156,11 +150,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.muted,
   },
-  previewValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.forestDark,
-    letterSpacing: 2,
+  previewInput: {
+    minHeight: 48,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.paper,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: colors.ink,
+    fontWeight: '600',
   },
   previewMeta: {
     fontSize: 13,

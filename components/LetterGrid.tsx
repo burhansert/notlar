@@ -4,16 +4,8 @@ import Svg, { Path } from 'react-native-svg';
 
 import { TURKISH_LETTERS, type TurkishLetter } from '@/constants/turkish-alphabet';
 import { colors, radius, spacing } from '@/constants/theme';
+import { strokeToPath } from '@/lib/handwriting';
 import type { HandwritingGlyph, Stroke } from '@/lib/types';
-
-function strokeToPath(stroke: Stroke, width: number, height: number) {
-  if (stroke.length === 0) return '';
-
-  const [first, ...rest] = stroke;
-  const start = `${first.x * width},${first.y * height}`;
-  const lines = rest.map((point) => `L ${point.x * width},${point.y * height}`).join(' ');
-  return `M ${start} ${lines}`;
-}
 
 function GlyphPreview({
   letter,

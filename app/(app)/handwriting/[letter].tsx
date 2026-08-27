@@ -115,10 +115,10 @@ export default function HandwritingLetterScreen() {
       </ScrollView>
 
       <View style={styles.actions}>
-        <View style={styles.save}>
+        <View style={styles.actionButton}>
           <Button label="Fonta kaydet" onPress={save} loading={saving} disabled={loading} />
         </View>
-        <View style={styles.delete}>
+        <View style={styles.actionButton}>
           <Button label="Sil" variant="danger" onPress={remove} disabled={loading || saving} />
         </View>
       </View>
@@ -155,10 +155,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingTop: 8,
   },
-  save: {
-    flex: 2,
-  },
-  delete: {
+  actionButton: {
     flex: 1,
   },
 });
