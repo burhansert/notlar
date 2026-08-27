@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
+import { GlyphSvg } from '@/components/GlyphSvg';
 import { TURKISH_LETTERS, type TurkishLetter } from '@/constants/turkish-alphabet';
 import { colors, radius, spacing } from '@/constants/theme';
-import { strokeToPath } from '@/lib/handwriting';
 import type { HandwritingGlyph, Stroke } from '@/lib/types';
+
+const PREVIEW_SIZE = 64;
 
 function GlyphPreview({
   letter,
@@ -16,24 +17,10 @@ function GlyphPreview({
   strokes?: Stroke[];
   completed: boolean;
 }) {
-  const size = 56;
-
   return (
     <View style={[styles.previewCell, completed ? styles.previewCellDone : null]}>
       {strokes && strokes.length > 0 ? (
-        <Svg width={size} height={size}>
-          {strokes.map((stroke, index) => (
-            <Path
-              key={`preview-${letter}-${index}`}
-              d={strokeToPath(stroke, size, size)}
-              stroke={colors.forestDark}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-          ))}
-        </Svg>
+        <GlyphSvg strokes={strokes} size={PREVIEW_SIZE} />
       ) : (
         <Text style={styles.previewLetter}>{letter}</Text>
       )}
@@ -89,7 +76,7 @@ export function LetterGrid({
                 { opacity: pressed ? 0.85 : 1 },
               ]}>
               <GlyphPreview letter={letter} strokes={strokes} completed={completed} />
-              <Text style={styles.cellLabel}>{letter}</Text>
+              {completed ? null : <Text style={styles.cellLabel}>{letter}</Text>}
               {completed ? <View style={styles.dot} /> : null}
             </Pressable>
           );
@@ -123,8 +110,8 @@ const styles = StyleSheet.create({
   },
   cell: {
     width: '18%',
-    minWidth: 62,
-    aspectRatio: 0.85,
+    minWidth: 72,
+    aspectRatio: 0.9,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -150,8 +137,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.forest,
   },
   previewCell: {
-    width: 56,
-    height: 56,
+    width: PREVIEW_SIZE,
+    height: PREVIEW_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },

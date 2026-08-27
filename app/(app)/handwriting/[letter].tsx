@@ -8,6 +8,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { letterFromRouteParam } from '@/constants/turkish-alphabet';
 import { deleteHandwritingGlyph, getHandwritingGlyph, upsertHandwritingGlyph } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { normalizeStrokesToBounds } from '@/lib/handwriting';
 import type { Stroke } from '@/lib/types';
 
 export default function HandwritingLetterScreen() {
@@ -60,7 +61,7 @@ export default function HandwritingLetterScreen() {
 
     setSaving(true);
     try {
-      await upsertHandwritingGlyph(session.token, letter, strokes);
+      await upsertHandwritingGlyph(session.token, letter, normalizeStrokesToBounds(strokes));
       router.back();
     } catch (err) {
       Alert.alert('Kaydedilemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');

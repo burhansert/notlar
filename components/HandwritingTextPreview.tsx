@@ -1,12 +1,12 @@
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
+import { GlyphSvg } from '@/components/GlyphSvg';
 import { colors, radius } from '@/constants/theme';
 import type { TurkishLetter } from '@/constants/turkish-alphabet';
-import { glyphLetterForChar, strokeToPath } from '@/lib/handwriting';
+import { glyphLetterForChar } from '@/lib/handwriting';
 import type { Stroke } from '@/lib/types';
 
-const GLYPH_SIZE = 44;
+const GLYPH_SIZE = 52;
 
 function GlyphChar({
   char,
@@ -24,19 +24,7 @@ function GlyphChar({
   if (strokes && strokes.length > 0) {
     return (
       <View style={styles.glyphBox}>
-        <Svg width={GLYPH_SIZE} height={GLYPH_SIZE}>
-          {strokes.map((stroke, index) => (
-            <Path
-              key={`${char}-${index}`}
-              d={strokeToPath(stroke, GLYPH_SIZE, GLYPH_SIZE)}
-              stroke={colors.forestDark}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-          ))}
-        </Svg>
+        <GlyphSvg strokes={strokes} size={GLYPH_SIZE} />
       </View>
     );
   }
@@ -91,7 +79,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'flex-end',
     gap: 4,
-    minHeight: 52,
+    minHeight: 56,
   },
   glyphBox: {
     width: GLYPH_SIZE,
@@ -104,7 +92,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paperDark,
   },
   fallback: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
     color: colors.ink,
     includeFontPadding: false,

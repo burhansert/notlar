@@ -1,20 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { PanResponder, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
+import { GlyphSvg } from '@/components/GlyphSvg';
 import { colors, radius } from '@/constants/theme';
 import type { Stroke, StrokePoint } from '@/lib/types';
-
-const STROKE_WIDTH = 4;
-
-function strokeToPath(stroke: Stroke, width: number, height: number) {
-  if (stroke.length === 0) return '';
-
-  const [first, ...rest] = stroke;
-  const start = `${first.x * width},${first.y * height}`;
-  const lines = rest.map((point) => `L ${point.x * width},${point.y * height}`).join(' ');
-  return `M ${start} ${lines}`;
-}
 
 function normalizePoint(locationX: number, locationY: number, width: number, height: number): StrokePoint {
   return {
@@ -32,14 +21,14 @@ export function HandwritingCanvas({
   strokes: Stroke[];
   onChange: (next: Stroke[]) => void;
 }) {
-  const [size, setSize] = useState({ width: 0, height: 0 });
+  const [size, setSize] = useState(0);
   const strokesRef = useRef(strokes);
   strokesRef.current = strokes;
 
   const onLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    if (width > 0 && height > 0) {
-      setSize({ width, height });
+    const { width } = event.nativeEvent.layout;
+    if (width > 0) {
+      setSize(width);
     }
   };
 
@@ -49,25 +38,25 @@ export function HandwritingCanvas({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (event) => {
-          if (size.width === 0 || size.height === 0) return;
+          if (size === 0) return;
           const point = normalizePoint(
             event.nativeEvent.locationX,
             event.nativeEvent.locationY,
-            size.width,
-            size.height
+            size,
+            size
           );
           onChange([...strokesRef.current, [point]]);
         },
         onPanResponderMove: (event) => {
-          if (size.width === 0 || size.height === 0) return;
+          if (size === 0) return;
           const current = strokesRef.current;
           if (current.length === 0) return;
 
           const point = normalizePoint(
             event.nativeEvent.locationX,
             event.nativeEvent.locationY,
-            size.width,
-            size.height
+            size,
+            size
           );
           const next = current.slice();
           const lastStroke = next[next.length - 1];
@@ -75,27 +64,17 @@ export function HandwritingCanvas({
           onChange(next);
         },
       }),
-    [onChange, size.height, size.width]
+    [onChange, size]
   );
 
   return (
     <View style={styles.wrap}>
       <View style={styles.canvas} onLayout={onLayout} {...panResponder.panHandlers}>
-        <Text style={styles.guide}>{letter}</Text>
-        {size.width > 0 && size.height > 0 ? (
-          <Svg width={size.width} height={size.height} style={styles.svg}>
-            {strokes.map((stroke, index) => (
-              <Path
-                key={`stroke-${index}`}
-                d={strokeToPath(stroke, size.width, size.height)}
-                stroke={colors.ink}
-                strokeWidth={STROKE_WIDTH}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            ))}
-          </Svg>
+        <Text style={[styles.guide, { fontSize: size * 0.72 }]}>{letter}</Text>
+        {size > 0 ? (
+          <View style={styles.drawingLayer} pointerEvents="none">
+            <GlyphSvg strokes={strokes} size={size} strokeColor={colors.ink} normalize={false} />
+          </View>
         ) : null}
       </View>
     </View>
@@ -104,12 +83,12 @@ export function HandwritingCanvas({
 
 const styles = StyleSheet.create({
   wrap: {
-    flex: 1,
-    minHeight: 320,
+    alignItems: 'center',
   },
   canvas: {
-    flex: 1,
-    minHeight: 320,
+    width: '100%',
+    maxWidth: 360,
+    aspectRatio: 1,
     borderRadius: radius.lg,
     borderWidth: 2,
     borderColor: colors.border,
@@ -120,13 +99,14 @@ const styles = StyleSheet.create({
   },
   guide: {
     position: 'absolute',
-    fontSize: 220,
     fontWeight: '800',
     color: colors.paperDark,
     opacity: 0.55,
     includeFontPadding: false,
+    width: '100%',
+    textAlign: 'center',
   },
-  svg: {
+  drawingLayer: {
     ...StyleSheet.absoluteFill,
   },
 });
