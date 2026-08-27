@@ -23,3 +23,15 @@ export function noteCountLabel(count: number) {
   if (count === 1) return '1 not';
   return `${count} not`;
 }
+
+export function notebookCountLabel(count: number) {
+  if (count === 0) return 'Not defteri yok';
+  if (count === 1) return '1 not defteri';
+  return `${count} not defteri`;
+}
+
+export function sectionCountLabel(count: number) {
+  if (count === 0) return 'Bölüm yok';
+  if (count === 1) return '1 bölüm';
+  return `${count} bölüm`;
+}

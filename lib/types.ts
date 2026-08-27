@@ -13,18 +13,42 @@ export type AppSession = {
   user: Profile;
 };
 
+export type Notebook = {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  section_count?: number;
+  note_count?: number;
+};
+
+export type Section = {
+  id: string;
+  notebook_id: string;
+  title: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  note_count?: number;
+};
+
 export type Note = {
   id: string;
   user_id: string;
+  section_id: string;
   title: string;
   content: string;
   created_at: string;
   updated_at: string;
   author_email?: string | null;
+  notebook_title?: string | null;
+  section_title?: string | null;
 };
 
 export type ProfileWithNotes = Profile & {
   note_count: number;
+  notebook_count: number;
 };
 
 export function noteAuthor(note: Note) {

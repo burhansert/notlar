@@ -14,6 +14,20 @@ export default function AppLayout() {
       }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
+        name="notebook/[notebookId]"
+        options={{
+          title: 'Bölümler',
+          headerTitleStyle: { fontWeight: '800' },
+        }}
+      />
+      <Stack.Screen
+        name="notebook/[notebookId]/[sectionId]"
+        options={{
+          title: 'Notlar',
+          headerTitleStyle: { fontWeight: '800' },
+        }}
+      />
+      <Stack.Screen
         name="note/[id]"
         options={{
           title: 'Not',

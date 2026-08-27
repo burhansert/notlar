@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { translateError } from '@/lib/credentials';
-import type { AppSession, Note, ProfileWithNotes } from '@/lib/types';
+import type { AppSession, Note, Notebook, ProfileWithNotes, Section } from '@/lib/types';
 
 async function rpc<T>(fn: string, args: Record<string, unknown>) {
   const { data, error } = await supabase.rpc(fn, args);
@@ -24,8 +24,55 @@ export function logoutUser(token: string) {
   return rpc<null>('logout_user', { p_token: token });
 }
 
-export function listNotes(token: string) {
-  return rpc<Note[] | null>('list_notes', { p_token: token }).then((rows) => rows ?? []);
+export function listNotebooks(token: string) {
+  return rpc<Notebook[] | null>('list_notebooks', { p_token: token }).then((rows) => rows ?? []);
+}
+
+export function createNotebook(token: string, title: string) {
+  return rpc<Notebook>('create_notebook', { p_token: token, p_title: title });
+}
+
+export function updateNotebook(token: string, id: string, title: string) {
+  return rpc<Notebook>('update_notebook', { p_token: token, p_id: id, p_title: title });
+}
+
+export function deleteNotebook(token: string, id: string) {
+  return rpc<null>('delete_notebook', { p_token: token, p_id: id });
+}
+
+export function listSections(token: string, notebookId: string) {
+  return rpc<Section[] | null>('list_sections', {
+    p_token: token,
+    p_notebook_id: notebookId,
+  }).then((rows) => rows ?? []);
+}
+
+export function createSection(token: string, notebookId: string, title: string) {
+  return rpc<Section>('create_section', {
+    p_token: token,
+    p_notebook_id: notebookId,
+    p_title: title,
+  });
+}
+
+export function updateSection(token: string, id: string, title: string, sortOrder?: number) {
+  return rpc<Section>('update_section', {
+    p_token: token,
+    p_id: id,
+    p_title: title,
+    p_sort_order: sortOrder ?? null,
+  });
+}
+
+export function deleteSection(token: string, id: string) {
+  return rpc<null>('delete_section', { p_token: token, p_id: id });
+}
+
+export function listNotes(token: string, sectionId: string) {
+  return rpc<Note[] | null>('list_notes', {
+    p_token: token,
+    p_section_id: sectionId,
+  }).then((rows) => rows ?? []);
 }
 
 export async function getNote(token: string, id: string) {
@@ -35,8 +82,13 @@ export async function getNote(token: string, id: string) {
   return note;
 }
 
-export function createNote(token: string, title: string, content: string) {
-  return rpc<Note>('create_note', { p_token: token, p_title: title, p_content: content });
+export function createNote(token: string, sectionId: string, title: string, content: string) {
+  return rpc<Note>('create_note', {
+    p_token: token,
+    p_section_id: sectionId,
+    p_title: title,
+    p_content: content,
+  });
 }
 
 export function updateNote(token: string, id: string, title: string, content: string) {

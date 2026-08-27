@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter, type Href } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,39 +12,42 @@ import {
   View,
 } from 'react-native';
 
-import { NotebookCard } from '@/components/NotebookCard';
+import { SectionCard } from '@/components/SectionCard';
 import { EmptyState, PromptModal } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
-import { createNotebook, deleteNotebook, listNotebooks, updateNotebook } from '@/lib/api';
+import { createSection, deleteSection, listSections, updateSection } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import type { Notebook } from '@/lib/types';
+import type { Section } from '@/lib/types';
 
-export default function NotebooksScreen() {
+export default function SectionsScreen() {
+  const { notebookId, title } = useLocalSearchParams<{ notebookId: string; title?: string }>();
   const router = useRouter();
   const { session } = useAuth();
-  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Notebook | null>(null);
+  const [editTarget, setEditTarget] = useState<Section | null>(null);
+
+  const notebookTitle = title?.trim() || 'Not defteri';
 
   const load = useCallback(async () => {
-    if (!session?.token) {
-      setNotebooks([]);
+    if (!session?.token || !notebookId) {
+      setSections([]);
       setLoading(false);
       setRefreshing(false);
       return;
     }
     try {
-      const data = await listNotebooks(session.token);
-      setNotebooks(data ?? []);
+      const data = await listSections(session.token, notebookId);
+      setSections(data ?? []);
     } catch {
-      setNotebooks([]);
+      setSections([]);
     }
     setLoading(false);
     setRefreshing(false);
-  }, [session?.token]);
+  }, [notebookId, session?.token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,49 +57,49 @@ export default function NotebooksScreen() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return notebooks;
-    return notebooks.filter((notebook) => notebook.title.toLowerCase().includes(q));
-  }, [notebooks, query]);
+    if (!q) return sections;
+    return sections.filter((section) => section.title.toLowerCase().includes(q));
+  }, [query, sections]);
 
-  async function handleCreate(title: string) {
-    if (!session?.token) return;
+  async function handleCreate(sectionTitle: string) {
+    if (!session?.token || !notebookId) return;
     setCreateOpen(false);
     try {
-      await createNotebook(session.token, title);
+      await createSection(session.token, notebookId, sectionTitle);
       load();
     } catch (err) {
       Alert.alert('Oluşturulamadı', err instanceof Error ? err.message : 'Bilinmeyen hata');
     }
   }
 
-  async function handleEdit(title: string) {
+  async function handleEdit(sectionTitle: string) {
     if (!session?.token || !editTarget) return;
     const target = editTarget;
     setEditTarget(null);
     try {
-      await updateNotebook(session.token, target.id, title);
+      await updateSection(session.token, target.id, sectionTitle);
       load();
     } catch (err) {
       Alert.alert('Güncellenemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
     }
   }
 
-  function openMenu(notebook: Notebook) {
-    Alert.alert(notebook.title.trim() || 'Not defteri', 'Ne yapmak istersiniz?', [
+  function openMenu(section: Section) {
+    Alert.alert(section.title.trim() || 'Bölüm', 'Ne yapmak istersiniz?', [
       { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Yeniden adlandır', onPress: () => setEditTarget(notebook) },
+      { text: 'Yeniden adlandır', onPress: () => setEditTarget(section) },
       {
         text: 'Sil',
         style: 'destructive',
-        onPress: () => confirmDelete(notebook),
+        onPress: () => confirmDelete(section),
       },
     ]);
   }
 
-  function confirmDelete(notebook: Notebook) {
+  function confirmDelete(section: Section) {
     Alert.alert(
-      'Not defterini sil',
-      'Bu not defteri ve içindeki tüm bölümler ile notlar kalıcı olarak silinecek.',
+      'Bölümü sil',
+      'Bu bölüm ve içindeki tüm notlar kalıcı olarak silinecek.',
       [
         { text: 'Vazgeç', style: 'cancel' },
         {
@@ -105,7 +108,7 @@ export default function NotebooksScreen() {
           onPress: async () => {
             if (!session?.token) return;
             try {
-              await deleteNotebook(session.token, notebook.id);
+              await deleteSection(session.token, section.id);
               load();
             } catch (err) {
               Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
@@ -118,12 +121,13 @@ export default function NotebooksScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ title: notebookTitle }} />
       <View style={styles.search}>
         <Ionicons name="search-outline" size={18} color={colors.muted} />
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Not defterlerinde ara"
+          placeholder="Bölümlerde ara"
           placeholderTextColor={colors.muted}
           style={styles.searchInput}
         />
@@ -148,21 +152,21 @@ export default function NotebooksScreen() {
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           ListEmptyComponent={
             <EmptyState
-              icon="book-outline"
-              title={query ? 'Sonuç yok' : 'Henüz not defteri yok'}
+              icon="layers-outline"
+              title={query ? 'Sonuç yok' : 'Henüz bölüm yok'}
               subtitle={
                 query
                   ? 'Farklı bir arama deneyin.'
-                  : 'İlk not defterinizi oluşturmak için + düğmesine dokunun.'
+                  : 'İlk bölümünüzü oluşturmak için + düğmesine dokunun.'
               }
             />
           }
           renderItem={({ item }) => (
-            <NotebookCard
-              notebook={item}
+            <SectionCard
+              section={item}
               onPress={() =>
                 router.push(
-                  `/notebook/${item.id}?title=${encodeURIComponent(item.title)}` as Href
+                  `/notebook/${notebookId}/${item.id}?notebookTitle=${encodeURIComponent(notebookTitle)}&sectionTitle=${encodeURIComponent(item.title)}` as Href
                 )
               }
               onMenuPress={() => openMenu(item)}
@@ -177,16 +181,16 @@ export default function NotebooksScreen() {
       </Pressable>
       <PromptModal
         visible={createOpen}
-        title="Yeni not defteri"
+        title="Yeni bölüm"
         label="Başlık"
-        placeholder="Örn. İş notları"
+        placeholder="Örn. Toplantılar"
         confirmLabel="Oluştur"
         onCancel={() => setCreateOpen(false)}
         onConfirm={handleCreate}
       />
       <PromptModal
         visible={Boolean(editTarget)}
-        title="Not defterini yeniden adlandır"
+        title="Bölümü yeniden adlandır"
         label="Başlık"
         initialValue={editTarget?.title ?? ''}
         onCancel={() => setEditTarget(null)}

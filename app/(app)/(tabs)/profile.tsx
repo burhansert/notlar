@@ -4,22 +4,29 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Button } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
-import { listNotes } from '@/lib/api';
+import { listNotebooks } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { formatDateTime, noteCountLabel } from '@/lib/format';
+import { formatDateTime, noteCountLabel, notebookCountLabel } from '@/lib/format';
 
 export default function ProfileScreen() {
   const { profile, isAdmin, signOut, session } = useAuth();
-  const [count, setCount] = useState(0);
+  const [notebookCount, setNotebookCount] = useState(0);
+  const [noteCount, setNoteCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const loadCount = useCallback(async () => {
     if (!session?.token) return;
     try {
-      const notes = await listNotes(session.token);
-      setCount(notes?.length ?? 0);
+      const notebooks = await listNotebooks(session.token);
+      setNotebookCount(notebooks?.length ?? 0);
+      const totalNotes = (notebooks ?? []).reduce(
+        (sum, notebook) => sum + (Number(notebook.note_count) || 0),
+        0
+      );
+      setNoteCount(totalNotes);
     } catch {
-      setCount(0);
+      setNotebookCount(0);
+      setNoteCount(0);
     }
   }, [session?.token]);
 
@@ -54,7 +61,8 @@ export default function ProfileScreen() {
             label={isAdmin ? 'Yönetici' : 'Kullanıcı'}
             tone={isAdmin ? 'admin' : 'success'}
           />
-          <Badge label={noteCountLabel(count)} />
+          <Badge label={notebookCountLabel(notebookCount)} />
+          <Badge label={noteCountLabel(noteCount)} />
         </View>
       </View>
 

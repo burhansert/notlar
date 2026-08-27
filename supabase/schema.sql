@@ -6,6 +6,8 @@ create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
 
 drop table if exists public.notes cascade;
+drop table if exists public.sections cascade;
+drop table if exists public.notebooks cascade;
 drop table if exists public.sessions cascade;
 drop table if exists public.users cascade;
 drop table if exists public.profiles cascade;
@@ -28,16 +30,39 @@ create table public.sessions (
   expires_at timestamptz not null default (now() + interval '30 days')
 );
 
+create table public.notebooks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users (id) on delete cascade,
+  title text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.sections (
+  id uuid primary key default gen_random_uuid(),
+  notebook_id uuid not null references public.notebooks (id) on delete cascade,
+  title text not null default '',
+  sort_order int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.notes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users (id) on delete cascade,
+  section_id uuid not null references public.sections (id) on delete cascade,
   title text not null default '',
   content text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+create index notebooks_user_id_idx on public.notebooks (user_id);
+create index notebooks_updated_at_idx on public.notebooks (updated_at desc);
+create index sections_notebook_id_idx on public.sections (notebook_id);
+create index sections_sort_order_idx on public.sections (notebook_id, sort_order);
 create index notes_user_id_idx on public.notes (user_id);
+create index notes_section_id_idx on public.notes (section_id);
 create index notes_updated_at_idx on public.notes (updated_at desc);
 create index sessions_user_id_idx on public.sessions (user_id);
 
@@ -50,6 +75,18 @@ begin
   return new;
 end;
 $$;
+
+drop trigger if exists notebooks_set_updated_at on public.notebooks;
+create trigger notebooks_set_updated_at
+  before update on public.notebooks
+  for each row
+  execute function private.set_updated_at();
+
+drop trigger if exists sections_set_updated_at on public.sections;
+create trigger sections_set_updated_at
+  before update on public.sections
+  for each row
+  execute function private.set_updated_at();
 
 drop trigger if exists notes_set_updated_at on public.notes;
 create trigger notes_set_updated_at
@@ -83,6 +120,79 @@ begin
   end if;
 
   return current_user_row;
+end;
+$$;
+
+create or replace function private.notebook_from_token(p_token uuid, p_notebook_id uuid)
+returns public.notebooks
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  found_user public.users;
+  found_notebook public.notebooks;
+begin
+  found_user := private.user_from_token(p_token);
+
+  select *
+    into found_notebook
+  from public.notebooks
+  where id = p_notebook_id
+    and (user_id = found_user.id or found_user.role = 'admin');
+
+  if found_notebook.id is null then
+    raise exception 'Not defteri bulunamadı.';
+  end if;
+
+  return found_notebook;
+end;
+$$;
+
+create or replace function private.section_from_token(p_token uuid, p_section_id uuid)
+returns public.sections
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  found_user public.users;
+  found_section public.sections;
+begin
+  found_user := private.user_from_token(p_token);
+
+  select s.*
+    into found_section
+  from public.sections s
+  join public.notebooks n on n.id = s.notebook_id
+  where s.id = p_section_id
+    and (n.user_id = found_user.id or found_user.role = 'admin');
+
+  if found_section.id is null then
+    raise exception 'Bölüm bulunamadı.';
+  end if;
+
+  return found_section;
+end;
+$$;
+
+create or replace function private.create_default_notebook(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_notebook_id uuid;
+begin
+  insert into public.notebooks (user_id, title)
+  values (p_user_id, 'Notlarım')
+  returning id into new_notebook_id;
+
+  insert into public.sections (notebook_id, title, sort_order)
+  values (new_notebook_id, 'Genel', 0);
 end;
 $$;
 
@@ -144,6 +254,8 @@ begin
   insert into public.users (email, password, role)
   values (normalized, p_password, next_role)
   returning * into new_user;
+
+  perform private.create_default_notebook(new_user.id);
 
   insert into public.sessions (user_id)
   values (new_user.id)
@@ -209,8 +321,16 @@ begin
 end;
 $$;
 
-create or replace function public.list_notes(p_token uuid)
-returns setof public.notes
+create or replace function public.list_notebooks(p_token uuid)
+returns table (
+  id uuid,
+  user_id uuid,
+  title text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  section_count bigint,
+  note_count bigint
+)
 language plpgsql
 stable
 security definer
@@ -220,10 +340,221 @@ declare
   found_user public.users;
 begin
   found_user := private.user_from_token(p_token);
+
+  return query
+    select
+      n.id,
+      n.user_id,
+      n.title,
+      n.created_at,
+      n.updated_at,
+      (select count(*) from public.sections s where s.notebook_id = n.id) as section_count,
+      (
+        select count(*)
+        from public.notes nt
+        join public.sections s on s.id = nt.section_id
+        where s.notebook_id = n.id
+      ) as note_count
+    from public.notebooks n
+    where n.user_id = found_user.id
+    order by n.updated_at desc;
+end;
+$$;
+
+create or replace function public.create_notebook(p_token uuid, p_title text)
+returns public.notebooks
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  found_user public.users;
+  new_notebook public.notebooks;
+begin
+  found_user := private.user_from_token(p_token);
+
+  insert into public.notebooks (user_id, title)
+  values (found_user.id, coalesce(nullif(trim(p_title), ''), 'Yeni not defteri'))
+  returning * into new_notebook;
+
+  return new_notebook;
+end;
+$$;
+
+create or replace function public.update_notebook(p_token uuid, p_id uuid, p_title text)
+returns public.notebooks
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_notebook public.notebooks;
+begin
+  perform private.notebook_from_token(p_token, p_id);
+
+  update public.notebooks
+  set title = coalesce(nullif(trim(p_title), ''), 'Yeni not defteri')
+  where id = p_id
+  returning * into updated_notebook;
+
+  return updated_notebook;
+end;
+$$;
+
+create or replace function public.delete_notebook(p_token uuid, p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  deleted_id uuid;
+begin
+  perform private.notebook_from_token(p_token, p_id);
+
+  delete from public.notebooks
+  where id = p_id
+  returning id into deleted_id;
+
+  if deleted_id is null then
+    raise exception 'Not defteri bulunamadı.';
+  end if;
+end;
+$$;
+
+create or replace function public.list_sections(p_token uuid, p_notebook_id uuid)
+returns table (
+  id uuid,
+  notebook_id uuid,
+  title text,
+  sort_order int,
+  created_at timestamptz,
+  updated_at timestamptz,
+  note_count bigint
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  perform private.notebook_from_token(p_token, p_notebook_id);
+
+  return query
+    select
+      s.id,
+      s.notebook_id,
+      s.title,
+      s.sort_order,
+      s.created_at,
+      s.updated_at,
+      (select count(*) from public.notes n where n.section_id = s.id) as note_count
+    from public.sections s
+    where s.notebook_id = p_notebook_id
+    order by s.sort_order asc, s.created_at asc;
+end;
+$$;
+
+create or replace function public.create_section(p_token uuid, p_notebook_id uuid, p_title text)
+returns public.sections
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  next_order int;
+  new_section public.sections;
+begin
+  perform private.notebook_from_token(p_token, p_notebook_id);
+
+  select coalesce(max(sort_order), -1) + 1
+    into next_order
+  from public.sections
+  where notebook_id = p_notebook_id;
+
+  insert into public.sections (notebook_id, title, sort_order)
+  values (p_notebook_id, coalesce(nullif(trim(p_title), ''), 'Yeni bölüm'), next_order)
+  returning * into new_section;
+
+  update public.notebooks
+  set updated_at = now()
+  where id = p_notebook_id;
+
+  return new_section;
+end;
+$$;
+
+create or replace function public.update_section(
+  p_token uuid,
+  p_id uuid,
+  p_title text,
+  p_sort_order int default null
+)
+returns public.sections
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  found_section public.sections;
+  updated_section public.sections;
+begin
+  found_section := private.section_from_token(p_token, p_id);
+
+  update public.sections
+  set title = coalesce(nullif(trim(p_title), ''), title),
+      sort_order = coalesce(p_sort_order, sort_order)
+  where id = p_id
+  returning * into updated_section;
+
+  update public.notebooks
+  set updated_at = now()
+  where id = found_section.notebook_id;
+
+  return updated_section;
+end;
+$$;
+
+create or replace function public.delete_section(p_token uuid, p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  found_section public.sections;
+  deleted_id uuid;
+begin
+  found_section := private.section_from_token(p_token, p_id);
+
+  delete from public.sections
+  where id = p_id
+  returning id into deleted_id;
+
+  if deleted_id is null then
+    raise exception 'Bölüm bulunamadı.';
+  end if;
+
+  update public.notebooks
+  set updated_at = now()
+  where id = found_section.notebook_id;
+end;
+$$;
+
+create or replace function public.list_notes(p_token uuid, p_section_id uuid)
+returns setof public.notes
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  perform private.section_from_token(p_token, p_section_id);
+
   return query
     select *
     from public.notes
-    where user_id = found_user.id
+    where section_id = p_section_id
     order by updated_at desc;
 end;
 $$;
@@ -241,11 +572,13 @@ declare
 begin
   found_user := private.user_from_token(p_token);
 
-  select *
+  select n.*
     into found_note
-  from public.notes
-  where id = p_id
-    and (user_id = found_user.id or found_user.role = 'admin');
+  from public.notes n
+  join public.sections s on s.id = n.section_id
+  join public.notebooks nb on nb.id = s.notebook_id
+  where n.id = p_id
+    and (nb.user_id = found_user.id or found_user.role = 'admin');
 
   if found_note.id is null then
     raise exception 'Not bulunamadı.';
@@ -255,7 +588,12 @@ begin
 end;
 $$;
 
-create or replace function public.create_note(p_token uuid, p_title text, p_content text)
+create or replace function public.create_note(
+  p_token uuid,
+  p_section_id uuid,
+  p_title text,
+  p_content text
+)
 returns public.notes
 language plpgsql
 security definer
@@ -263,13 +601,19 @@ set search_path = public
 as $$
 declare
   found_user public.users;
+  found_section public.sections;
   new_note public.notes;
 begin
   found_user := private.user_from_token(p_token);
+  found_section := private.section_from_token(p_token, p_section_id);
 
-  insert into public.notes (user_id, title, content)
-  values (found_user.id, coalesce(p_title, ''), coalesce(p_content, ''))
+  insert into public.notes (user_id, section_id, title, content)
+  values (found_user.id, found_section.id, coalesce(p_title, ''), coalesce(p_content, ''))
   returning * into new_note;
+
+  update public.notebooks
+  set updated_at = now()
+  where id = found_section.notebook_id;
 
   return new_note;
 end;
@@ -284,19 +628,27 @@ as $$
 declare
   found_user public.users;
   updated_note public.notes;
+  found_notebook_id uuid;
 begin
   found_user := private.user_from_token(p_token);
 
-  update public.notes
+  update public.notes n
   set title = coalesce(p_title, ''),
       content = coalesce(p_content, '')
-  where id = p_id
-    and (user_id = found_user.id or found_user.role = 'admin')
-  returning * into updated_note;
+  from public.sections s
+  join public.notebooks nb on nb.id = s.notebook_id
+  where n.id = p_id
+    and n.section_id = s.id
+    and (nb.user_id = found_user.id or found_user.role = 'admin')
+  returning n.*, nb.id into updated_note, found_notebook_id;
 
   if updated_note.id is null then
     raise exception 'Not bulunamadı.';
   end if;
+
+  update public.notebooks
+  set updated_at = now()
+  where id = found_notebook_id;
 
   return updated_note;
 end;
@@ -311,17 +663,25 @@ as $$
 declare
   found_user public.users;
   deleted_id uuid;
+  found_notebook_id uuid;
 begin
   found_user := private.user_from_token(p_token);
 
-  delete from public.notes
-  where id = p_id
-    and (user_id = found_user.id or found_user.role = 'admin')
-  returning id into deleted_id;
+  delete from public.notes n
+  using public.sections s, public.notebooks nb
+  where n.id = p_id
+    and n.section_id = s.id
+    and s.notebook_id = nb.id
+    and (nb.user_id = found_user.id or found_user.role = 'admin')
+  returning n.id, nb.id into deleted_id, found_notebook_id;
 
   if deleted_id is null then
     raise exception 'Not bulunamadı.';
   end if;
+
+  update public.notebooks
+  set updated_at = now()
+  where id = found_notebook_id;
 end;
 $$;
 
@@ -332,7 +692,8 @@ returns table (
   role text,
   is_active boolean,
   created_at timestamptz,
-  note_count bigint
+  note_count bigint,
+  notebook_count bigint
 )
 language plpgsql
 stable
@@ -354,7 +715,8 @@ begin
       u.role,
       u.is_active,
       u.created_at,
-      (select count(*) from public.notes n where n.user_id = u.id) as note_count
+      (select count(*) from public.notes n where n.user_id = u.id) as note_count,
+      (select count(*) from public.notebooks nb where nb.user_id = u.id) as notebook_count
     from public.users u
     order by u.created_at desc;
 end;
@@ -364,11 +726,14 @@ create or replace function public.admin_list_notes(p_token uuid)
 returns table (
   id uuid,
   user_id uuid,
+  section_id uuid,
   title text,
   content text,
   created_at timestamptz,
   updated_at timestamptz,
-  author_email text
+  author_email text,
+  notebook_title text,
+  section_title text
 )
 language plpgsql
 stable
@@ -387,13 +752,18 @@ begin
     select
       n.id,
       n.user_id,
+      n.section_id,
       n.title,
       n.content,
       n.created_at,
       n.updated_at,
-      u.email as author_email
+      u.email as author_email,
+      nb.title as notebook_title,
+      s.title as section_title
     from public.notes n
     join public.users u on u.id = n.user_id
+    join public.sections s on s.id = n.section_id
+    join public.notebooks nb on nb.id = s.notebook_id
     order by n.updated_at desc;
 end;
 $$;
@@ -464,19 +834,31 @@ $$;
 
 alter table public.users enable row level security;
 alter table public.sessions enable row level security;
+alter table public.notebooks enable row level security;
+alter table public.sections enable row level security;
 alter table public.notes enable row level security;
 
 revoke all on table public.users from public, anon, authenticated;
 revoke all on table public.sessions from public, anon, authenticated;
+revoke all on table public.notebooks from public, anon, authenticated;
+revoke all on table public.sections from public, anon, authenticated;
 revoke all on table public.notes from public, anon, authenticated;
 
 grant execute on function public.register_user(text, text) to anon, authenticated;
 grant execute on function public.login_user(text, text) to anon, authenticated;
 grant execute on function public.restore_session(uuid) to anon, authenticated;
 grant execute on function public.logout_user(uuid) to anon, authenticated;
-grant execute on function public.list_notes(uuid) to anon, authenticated;
+grant execute on function public.list_notebooks(uuid) to anon, authenticated;
+grant execute on function public.create_notebook(uuid, text) to anon, authenticated;
+grant execute on function public.update_notebook(uuid, uuid, text) to anon, authenticated;
+grant execute on function public.delete_notebook(uuid, uuid) to anon, authenticated;
+grant execute on function public.list_sections(uuid, uuid) to anon, authenticated;
+grant execute on function public.create_section(uuid, uuid, text) to anon, authenticated;
+grant execute on function public.update_section(uuid, uuid, text, int) to anon, authenticated;
+grant execute on function public.delete_section(uuid, uuid) to anon, authenticated;
+grant execute on function public.list_notes(uuid, uuid) to anon, authenticated;
 grant execute on function public.get_note(uuid, uuid) to anon, authenticated;
-grant execute on function public.create_note(uuid, text, text) to anon, authenticated;
+grant execute on function public.create_note(uuid, uuid, text, text) to anon, authenticated;
 grant execute on function public.update_note(uuid, uuid, text, text) to anon, authenticated;
 grant execute on function public.delete_note(uuid, uuid) to anon, authenticated;
 grant execute on function public.admin_list_users(uuid) to anon, authenticated;

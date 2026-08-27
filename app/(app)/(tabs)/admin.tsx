@@ -16,7 +16,7 @@ import { Badge, EmptyState } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { adminDeleteNote, adminListNotes, adminListUsers, adminSetUser } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { formatDateTime, noteCountLabel } from '@/lib/format';
+import { formatDateTime, noteCountLabel, notebookCountLabel } from '@/lib/format';
 import { noteAuthor, type Note, type ProfileWithNotes, type Role } from '@/lib/types';
 
 type TabKey = 'users' | 'notes';
@@ -56,6 +56,7 @@ export default function AdminScreen() {
     () => ({
       users: users.length,
       admins: users.filter((user) => user.role === 'admin').length,
+      notebooks: users.reduce((sum, user) => sum + (Number(user.notebook_count) || 0), 0),
       notes: notes.length,
     }),
     [users, notes]
@@ -126,6 +127,7 @@ export default function AdminScreen() {
       <View style={styles.stats}>
         <Stat label="Kullanıcı" value={stats.users} />
         <Stat label="Yönetici" value={stats.admins} />
+        <Stat label="Defter" value={stats.notebooks} />
         <Stat label="Not" value={stats.notes} />
       </View>
 
@@ -152,6 +154,7 @@ export default function AdminScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.username}>{item.email}</Text>
                   <Text style={styles.meta}>
+                    {notebookCountLabel(Number(item.notebook_count) || 0)} ·{' '}
                     {noteCountLabel(Number(item.note_count) || 0)} · {formatDateTime(item.created_at)}
                   </Text>
                 </View>

@@ -29,6 +29,11 @@ export function NoteCard({
           <Text style={styles.date}>{formatDateTime(note.updated_at)}</Text>
           {author ? <Text style={styles.author}>{author}</Text> : null}
         </View>
+        {note.notebook_title || note.section_title ? (
+          <Text style={styles.context} numberOfLines={1}>
+            {[note.notebook_title, note.section_title].filter(Boolean).join(' · ')}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -77,5 +82,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.forest,
     fontWeight: '700',
+  },
+  context: {
+    fontSize: 12,
+    color: colors.terracotta,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });

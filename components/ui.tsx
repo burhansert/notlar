@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -147,6 +148,61 @@ export function ErrorBanner({ message }: { message: string | null }) {
   );
 }
 
+export function PromptModal({
+  visible,
+  title,
+  label,
+  placeholder,
+  initialValue = '',
+  confirmLabel = 'Kaydet',
+  onConfirm,
+  onCancel,
+}: {
+  visible: boolean;
+  title: string;
+  label: string;
+  placeholder?: string;
+  initialValue?: string;
+  confirmLabel?: string;
+  onConfirm: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+
+  useEffect(() => {
+    if (visible) setValue(initialValue);
+  }, [visible, initialValue]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <Pressable style={styles.modalBackdrop} onPress={onCancel}>
+        <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <Text style={styles.inputLabel}>{label}</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              value={value}
+              onChangeText={setValue}
+              placeholder={placeholder}
+              placeholderTextColor={colors.muted}
+              style={styles.input}
+              autoFocus
+            />
+          </View>
+          <View style={styles.modalActions}>
+            <View style={styles.modalAction}>
+              <Button label="Vazgeç" variant="ghost" onPress={onCancel} />
+            </View>
+            <View style={styles.modalAction}>
+              <Button label={confirmLabel} onPress={() => onConfirm(value.trim())} />
+            </View>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -243,5 +299,32 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 14,
     fontWeight: '600',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  modalAction: {
+    flex: 1,
   },
 });
