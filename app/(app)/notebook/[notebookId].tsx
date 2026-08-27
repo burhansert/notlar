@@ -34,6 +34,7 @@ export default function SectionsScreen() {
   const [menuTarget, setMenuTarget] = useState<Section | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Section | null>(null);
   const [moveTarget, setMoveTarget] = useState<Section | null>(null);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
 
   const notebookTitle = title?.trim() || 'Not defteri';
 
@@ -106,14 +107,7 @@ export default function SectionsScreen() {
   }
 
   function openFabMenu() {
-    Alert.alert('Yeni oluştur', 'Ne oluşturmak istersiniz?', [
-      { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Bölüm', onPress: () => setCreateOpen(true) },
-      {
-        text: 'Not',
-        onPress: () => router.push(`/note/new?notebookId=${notebookId}` as Href),
-      },
-    ]);
+    setFabMenuOpen(true);
   }
 
   async function handleDelete() {
@@ -209,6 +203,22 @@ export default function SectionsScreen() {
         initialValue={editTarget?.title ?? ''}
         onCancel={() => setEditTarget(null)}
         onConfirm={handleEdit}
+      />
+      <ActionMenuModal
+        visible={fabMenuOpen}
+        title="Yeni oluştur"
+        message="Ne oluşturmak istersiniz?"
+        onClose={() => setFabMenuOpen(false)}
+        actions={[
+          {
+            label: 'Bölüm',
+            onPress: () => setCreateOpen(true),
+          },
+          {
+            label: 'Not',
+            onPress: () => router.push(`/note/new?notebookId=${notebookId}` as Href),
+          },
+        ]}
       />
       <ActionMenuModal
         visible={Boolean(menuTarget)}
