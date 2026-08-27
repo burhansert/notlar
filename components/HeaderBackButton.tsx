@@ -1,15 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { colors } from '@/constants/theme';
 
 type Props = {
   fallbackHref: Href;
-  label?: string;
 };
 
-export function HeaderBackButton({ fallbackHref, label = 'Geri' }: Props) {
+export function HeaderBackButton({ fallbackHref }: Props) {
   const router = useRouter();
 
   function handlePress() {
@@ -26,20 +25,14 @@ export function HeaderBackButton({ fallbackHref, label = 'Geri' }: Props) {
       hitSlop={8}
       style={({ pressed }) => [styles.container, { opacity: pressed ? 0.6 : 1 }]}>
       <Ionicons name="chevron-back" size={28} color={colors.ink} />
-      <Text style={styles.label}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: -8,
-  },
-  label: {
-    color: colors.ink,
-    fontSize: 17,
+    justifyContent: 'center',
     marginLeft: -4,
   },
 });
