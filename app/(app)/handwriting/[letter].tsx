@@ -5,9 +5,9 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { HandwritingCanvas } from '@/components/HandwritingCanvas';
 import { HeaderBackButton } from '@/components/HeaderBackButton';
 import { Button } from '@/components/ui';
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 import { letterFromRouteParam } from '@/constants/turkish-alphabet';
-import { deleteHandwritingGlyph, getHandwritingGlyph, upsertHandwritingGlyph } from '@/lib/api';
+import { getHandwritingGlyph, upsertHandwritingGlyph } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { Stroke } from '@/lib/types';
 
@@ -70,26 +70,6 @@ export default function HandwritingLetterScreen() {
     }
   }
 
-  async function remove() {
-    if (!session?.token || !letter) return;
-
-    Alert.alert('Harfi sil', `${letter} harfinin çizimini silmek istediğinize emin misiniz?`, [
-      { text: 'Vazgeç', style: 'cancel' },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteHandwritingGlyph(session.token, letter);
-            router.back();
-          } catch (err) {
-            Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
-          }
-        },
-      },
-    ]);
-  }
-
   if (!letter) {
     return null;
   }
@@ -112,22 +92,16 @@ export default function HandwritingLetterScreen() {
 
         <View style={styles.tools}>
           <View style={styles.toolButton}>
-            <Button label="Geri al" variant="secondary" onPress={undoStroke} disabled={loading} />
+            <Button label="Geri al" variant="secondary" onPress={undoStroke} disabled={loading || saving} />
           </View>
           <View style={styles.toolButton}>
-            <Button label="Temizle" variant="ghost" onPress={clearStrokes} disabled={loading} />
+            <Button label="Temizle" variant="ghost" onPress={clearStrokes} disabled={loading || saving} />
+          </View>
+          <View style={styles.toolButton}>
+            <Button label="Kaydet" onPress={save} loading={saving} disabled={loading} />
           </View>
         </View>
       </ScrollView>
-
-      <View style={styles.actions}>
-        <View style={styles.actionButton}>
-          <Button label="Fonta kaydet" onPress={save} loading={saving} disabled={loading} />
-        </View>
-        <View style={styles.actionButton}>
-          <Button label="Sil" variant="danger" onPress={remove} disabled={loading || saving} />
-        </View>
-      </View>
     </View>
   );
 }
@@ -140,6 +114,7 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
     gap: spacing.md,
+    paddingBottom: spacing.lg,
   },
   help: {
     fontSize: 14,
@@ -152,15 +127,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   toolButton: {
-    flex: 1,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 10,
-    padding: spacing.lg,
-    paddingTop: 8,
-  },
-  actionButton: {
     flex: 1,
   },
 });
