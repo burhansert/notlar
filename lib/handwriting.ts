@@ -100,6 +100,8 @@ const COMPACT_PUNCTUATION = new Set<HandwritingCharacter>([
   '?',
   '"',
   "'",
+  '”',
+  '’',
   '+',
   '-',
   '*',
