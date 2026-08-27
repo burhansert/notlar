@@ -7,6 +7,16 @@ import { glyphLetterForChar } from '@/lib/handwriting';
 import type { Stroke } from '@/lib/types';
 
 const GLYPH_SIZE = 52;
+const LETTER_GAP = 1;
+const WORD_GAP = 12;
+const PARAGRAPH_GAP = 14;
+
+function splitIntoParagraphs(text: string): string[][] {
+  return text
+    .split(/\n+/)
+    .map((paragraph) => paragraph.trim().split(/\s+/).filter(Boolean))
+    .filter((words) => words.length > 0);
+}
 
 function GlyphChar({
   char,
@@ -17,10 +27,6 @@ function GlyphChar({
   strokes?: Stroke[];
   missing: boolean;
 }) {
-  if (char === ' ') {
-    return <View style={styles.space} />;
-  }
-
   if (strokes && strokes.length > 0) {
     return (
       <View style={styles.glyphBox}>
@@ -36,33 +42,25 @@ function GlyphChar({
   );
 }
 
-export function HandwritingTextPreview({
-  text,
+function HandwritingWord({
+  word,
   glyphMap,
+  keyPrefix,
 }: {
-  text: string;
+  word: string;
   glyphMap: Map<HandwritingCharacter, Stroke[]>;
+  keyPrefix: string;
 }) {
-  const value = text.trim();
-
-  if (!value) {
-    return (
-      <Text style={styles.placeholder}>
-        Metin yazdığınızda el yazınızla nasıl görüneceğini burada göreceksiniz.
-      </Text>
-    );
-  }
-
   return (
-    <View style={styles.wrap}>
-      {Array.from(value).map((char, index) => {
+    <View style={styles.word}>
+      {Array.from(word).map((char, index) => {
         const letter = glyphLetterForChar(char);
         const strokes = letter ? glyphMap.get(letter) : undefined;
         const missing = Boolean(letter && !strokes?.length);
 
         return (
           <GlyphChar
-            key={`${char}-${index}`}
+            key={`${keyPrefix}-${index}`}
             char={char}
             strokes={strokes}
             missing={missing}
@@ -73,13 +71,59 @@ export function HandwritingTextPreview({
   );
 }
 
+export function HandwritingTextPreview({
+  text,
+  glyphMap,
+}: {
+  text: string;
+  glyphMap: Map<HandwritingCharacter, Stroke[]>;
+}) {
+  const value = text.trim();
+  const paragraphs = splitIntoParagraphs(value);
+
+  if (!value || paragraphs.length === 0) {
+    return (
+      <Text style={styles.placeholder}>
+        Metin yazdığınızda el yazınızla nasıl görüneceğini burada göreceksiniz.
+      </Text>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {paragraphs.map((words, paragraphIndex) => (
+        <View key={`paragraph-${paragraphIndex}`} style={styles.paragraph}>
+          {words.map((word, wordIndex) => (
+            <HandwritingWord
+              key={`word-${paragraphIndex}-${wordIndex}`}
+              keyPrefix={`word-${paragraphIndex}-${wordIndex}`}
+              word={word}
+              glyphMap={glyphMap}
+            />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  wrap: {
+  container: {
+    gap: PARAGRAPH_GAP,
+    minHeight: 56,
+  },
+  paragraph: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'flex-end',
-    gap: 4,
-    minHeight: 56,
+    columnGap: WORD_GAP,
+    rowGap: 8,
+  },
+  word: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'flex-end',
+    gap: LETTER_GAP,
   },
   glyphBox: {
     width: GLYPH_SIZE,
@@ -100,10 +144,6 @@ const styles = StyleSheet.create({
   fallbackMissing: {
     color: colors.muted,
     opacity: 0.65,
-  },
-  space: {
-    width: 16,
-    height: GLYPH_SIZE,
   },
   placeholder: {
     fontSize: 14,
