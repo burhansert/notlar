@@ -27,6 +27,22 @@ export type ProfileWithNotes = Profile & {
   note_count: number;
 };
 
+export type StrokePoint = {
+  x: number;
+  y: number;
+};
+
+export type Stroke = StrokePoint[];
+
+export type HandwritingGlyph = {
+  id: string;
+  user_id: string;
+  letter: string;
+  stroke_data: Stroke[];
+  created_at: string;
+  updated_at: string;
+};
+
 export function noteAuthor(note: Note) {
   return note.author_email ?? undefined;
 }

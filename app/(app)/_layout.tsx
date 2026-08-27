@@ -20,6 +20,13 @@ export default function AppLayout() {
           headerTitleStyle: { fontWeight: '800' },
         }}
       />
+      <Stack.Screen
+        name="handwriting/[letter]"
+        options={{
+          title: 'El Yazım',
+          headerTitleStyle: { fontWeight: '800' },
+        }}
+      />
     </Stack>
   );
 }

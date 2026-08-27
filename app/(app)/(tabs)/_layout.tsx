@@ -32,6 +32,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="handwriting"
+        options={{
+          title: 'El Yazım',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="pencil-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Hesap',
