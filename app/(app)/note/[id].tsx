@@ -120,11 +120,11 @@ export default function NoteEditorScreen() {
           />
         </ScrollView>
         <View style={styles.actions}>
-          <View style={styles.save}>
+          <View style={styles.action}>
             <Button label={isNew ? 'Kaydet' : 'Güncelle'} onPress={save} loading={saving} />
           </View>
           {isNew ? null : (
-            <View style={styles.delete}>
+            <View style={styles.action}>
               <Button label="Sil" variant="danger" onPress={remove} />
             </View>
           )}
@@ -166,6 +166,5 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingTop: 8,
   },
-  save: { flex: 2 },
-  delete: { flex: 1 },
+  action: { flex: 1 },
 });
