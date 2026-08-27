@@ -3,6 +3,7 @@ export const colors = {
   paperDark: '#E8DFD0',
   card: '#FFFCF7',
   ink: '#1C1916',
+  handwritingInk: '#000000',
   muted: '#7A7268',
   border: '#E4D9C8',
   forest: '#1F5C45',

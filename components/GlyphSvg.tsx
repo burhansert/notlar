@@ -7,7 +7,7 @@ import type { Stroke } from '@/lib/types';
 export function GlyphSvg({
   strokes,
   size,
-  strokeColor = colors.forestDark,
+  strokeColor = colors.handwritingInk,
   strokeWidth,
   normalize = true,
 }: {
