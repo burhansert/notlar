@@ -1,6 +1,14 @@
 import { supabase } from '@/lib/supabase';
 import { translateError } from '@/lib/credentials';
-import type { AppSession, Note, Notebook, ProfileWithNotes, Section } from '@/lib/types';
+import type {
+  AppSession,
+  HandwritingGlyph,
+  Note,
+  Notebook,
+  ProfileWithNotes,
+  Section,
+  Stroke,
+} from '@/lib/types';
 
 async function rpc<T>(fn: string, args: Record<string, unknown>) {
   const { data, error } = await supabase.rpc(fn, args);
@@ -142,4 +150,31 @@ export function adminSetUser(
 
 export function adminDeleteNote(token: string, id: string) {
   return rpc<null>('admin_delete_note', { p_token: token, p_id: id });
+}
+
+export function listHandwritingGlyphs(token: string) {
+  return rpc<HandwritingGlyph[] | null>('list_handwriting_glyphs', { p_token: token }).then(
+    (rows) => rows ?? []
+  );
+}
+
+export async function getHandwritingGlyph(token: string, letter: string) {
+  const data = await rpc<HandwritingGlyph | HandwritingGlyph[] | null>('get_handwriting_glyph', {
+    p_token: token,
+    p_letter: letter,
+  });
+  const glyph = Array.isArray(data) ? data[0] : data;
+  return glyph ?? null;
+}
+
+export function upsertHandwritingGlyph(token: string, letter: string, strokeData: Stroke[]) {
+  return rpc<HandwritingGlyph>('upsert_handwriting_glyph', {
+    p_token: token,
+    p_letter: letter,
+    p_stroke_data: strokeData,
+  });
+}
+
+export function deleteHandwritingGlyph(token: string, letter: string) {
+  return rpc<null>('delete_handwriting_glyph', { p_token: token, p_letter: letter });
 }
