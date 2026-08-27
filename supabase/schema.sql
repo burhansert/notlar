@@ -640,11 +640,16 @@ begin
   where n.id = p_id
     and n.section_id = s.id
     and (nb.user_id = found_user.id or found_user.role = 'admin')
-  returning n.*, nb.id into updated_note, found_notebook_id;
+  returning n.* into updated_note;
 
   if updated_note.id is null then
     raise exception 'Not bulunamadı.';
   end if;
+
+  select s.notebook_id
+    into found_notebook_id
+  from public.sections s
+  where s.id = updated_note.section_id;
 
   update public.notebooks
   set updated_at = now()
