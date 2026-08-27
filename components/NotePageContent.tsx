@@ -38,14 +38,6 @@ export function NotePageContent({
   );
 }
 
-export const notePageMeasureStyles = StyleSheet.create({
-  body: {
-    fontSize: NOTE_BODY_FONT_SIZE,
-    lineHeight: NOTE_BODY_LINE_HEIGHT,
-    color: colors.ink,
-  },
-});
-
 const styles = StyleSheet.create({
   page: {
     flex: 1,
