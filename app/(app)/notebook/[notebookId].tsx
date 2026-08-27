@@ -13,11 +13,12 @@ import {
 } from 'react-native';
 
 import { SectionCard } from '@/components/SectionCard';
+import { NotebookSectionPicker } from '@/components/NotebookSectionPicker';
 import { ActionMenuModal, ConfirmModal, EmptyState, PromptModal } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
 import { createSection, deleteSection, listSections, updateSection } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import type { Section } from '@/lib/types';
+import type { Notebook, Section } from '@/lib/types';
 
 export default function SectionsScreen() {
   const { notebookId, title } = useLocalSearchParams<{ notebookId: string; title?: string }>();
@@ -31,6 +32,7 @@ export default function SectionsScreen() {
   const [editTarget, setEditTarget] = useState<Section | null>(null);
   const [menuTarget, setMenuTarget] = useState<Section | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Section | null>(null);
+  const [moveTarget, setMoveTarget] = useState<Section | null>(null);
 
   const notebookTitle = title?.trim() || 'Not defteri';
 
@@ -83,6 +85,18 @@ export default function SectionsScreen() {
       load();
     } catch (err) {
       Alert.alert('Güncellenemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
+    }
+  }
+
+  async function handleMove(notebook: Notebook) {
+    if (!session?.token || !moveTarget || !notebookId) return;
+    const target = moveTarget;
+    setMoveTarget(null);
+    try {
+      await updateSection(session.token, target.id, target.title, undefined, notebook.id);
+      load();
+    } catch (err) {
+      Alert.alert('Taşınamadı', err instanceof Error ? err.message : 'Bilinmeyen hata');
     }
   }
 
@@ -192,6 +206,12 @@ export default function SectionsScreen() {
             },
           },
           {
+            label: 'Not defterine taşı',
+            onPress: () => {
+              if (menuTarget) setMoveTarget(menuTarget);
+            },
+          },
+          {
             label: 'Sil',
             destructive: true,
             onPress: () => {
@@ -209,6 +229,17 @@ export default function SectionsScreen() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
       />
+      {session?.token ? (
+        <NotebookSectionPicker
+          visible={Boolean(moveTarget)}
+          mode="notebook"
+          token={session.token}
+          excludeNotebookId={notebookId}
+          onSelectNotebook={handleMove}
+          onSelectSection={() => {}}
+          onCancel={() => setMoveTarget(null)}
+        />
+      ) : null}
     </View>
   );
 }

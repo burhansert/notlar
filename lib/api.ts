@@ -55,12 +55,19 @@ export function createSection(token: string, notebookId: string, title: string) 
   });
 }
 
-export function updateSection(token: string, id: string, title: string, sortOrder?: number) {
+export function updateSection(
+  token: string,
+  id: string,
+  title: string,
+  sortOrder?: number,
+  notebookId?: string
+) {
   return rpc<Section>('update_section', {
     p_token: token,
     p_id: id,
     p_title: title,
     p_sort_order: sortOrder ?? null,
+    p_notebook_id: notebookId ?? null,
   });
 }
 
@@ -91,12 +98,19 @@ export function createNote(token: string, sectionId: string, title: string, cont
   });
 }
 
-export function updateNote(token: string, id: string, title: string, content: string) {
+export function updateNote(
+  token: string,
+  id: string,
+  title: string,
+  content: string,
+  sectionId?: string
+) {
   return rpc<Note>('update_note', {
     p_token: token,
     p_id: id,
     p_title: title,
     p_content: content,
+    p_section_id: sectionId ?? null,
   });
 }
 

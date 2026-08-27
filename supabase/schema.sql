@@ -1,6 +1,9 @@
 -- Notlar: Supabase Auth KULLANILMAZ.
 -- E-posta ve şifre public.users tablosuna düz metin olarak yazılır.
--- Supabase SQL Editor'de tek seferde çalıştırın.
+--
+-- UYARI: Bu dosya sıfırdan kurulum içindir (DROP TABLE ile tüm veriyi siler).
+-- Verisi olan bir Supabase projesinde ÇALIŞTIRMAYIN.
+-- Mevcut DB güncellemeleri için supabase/migrations/ altındaki dosyaları kullanın.
 
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
@@ -513,7 +516,8 @@ create or replace function public.update_section(
   p_token uuid,
   p_id uuid,
   p_title text,
-  p_sort_order int default null
+  p_sort_order int default null,
+  p_notebook_id uuid default null
 )
 returns public.sections
 language plpgsql
@@ -523,18 +527,42 @@ as $$
 declare
   found_section public.sections;
   updated_section public.sections;
+  target_notebook_id uuid;
+  next_order int;
 begin
   found_section := private.section_from_token(p_token, p_id);
+  target_notebook_id := coalesce(p_notebook_id, found_section.notebook_id);
+
+  if p_notebook_id is not null and p_notebook_id <> found_section.notebook_id then
+    perform private.notebook_from_token(p_token, p_notebook_id);
+
+    select coalesce(max(sort_order), -1) + 1
+      into next_order
+    from public.sections
+    where notebook_id = p_notebook_id;
+  else
+    next_order := coalesce(p_sort_order, found_section.sort_order);
+  end if;
 
   update public.sections
   set title = coalesce(nullif(trim(p_title), ''), title),
-      sort_order = coalesce(p_sort_order, sort_order)
+      sort_order = case
+        when p_notebook_id is not null and p_notebook_id <> found_section.notebook_id then next_order
+        else coalesce(p_sort_order, sort_order)
+      end,
+      notebook_id = target_notebook_id
   where id = p_id
   returning * into updated_section;
 
   update public.notebooks
   set updated_at = now()
   where id = found_section.notebook_id;
+
+  if target_notebook_id <> found_section.notebook_id then
+    update public.notebooks
+    set updated_at = now()
+    where id = target_notebook_id;
+  end if;
 
   return updated_section;
 end;
@@ -585,7 +613,18 @@ end;
 $$;
 
 create or replace function public.get_note(p_token uuid, p_id uuid)
-returns public.notes
+returns table (
+  id uuid,
+  user_id uuid,
+  section_id uuid,
+  title text,
+  content text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  notebook_id uuid,
+  notebook_title text,
+  section_title text
+)
 language plpgsql
 stable
 security definer
@@ -593,23 +632,26 @@ set search_path = public
 as $$
 declare
   found_user public.users;
-  found_note public.notes;
 begin
   found_user := private.user_from_token(p_token);
 
-  select n.*
-    into found_note
-  from public.notes n
-  join public.sections s on s.id = n.section_id
-  join public.notebooks nb on nb.id = s.notebook_id
-  where n.id = p_id
-    and (nb.user_id = found_user.id or found_user.role = 'admin');
-
-  if found_note.id is null then
-    raise exception 'Not bulunamadı.';
-  end if;
-
-  return found_note;
+  return query
+    select
+      n.id,
+      n.user_id,
+      n.section_id,
+      n.title,
+      n.content,
+      n.created_at,
+      n.updated_at,
+      nb.id as notebook_id,
+      nb.title as notebook_title,
+      s.title as section_title
+    from public.notes n
+    join public.sections s on s.id = n.section_id
+    join public.notebooks nb on nb.id = s.notebook_id
+    where n.id = p_id
+      and (nb.user_id = found_user.id or found_user.role = 'admin');
 end;
 $$;
 
@@ -644,7 +686,13 @@ begin
 end;
 $$;
 
-create or replace function public.update_note(p_token uuid, p_id uuid, p_title text, p_content text)
+create or replace function public.update_note(
+  p_token uuid,
+  p_id uuid,
+  p_title text,
+  p_content text,
+  p_section_id uuid default null
+)
 returns public.notes
 language plpgsql
 security definer
@@ -653,13 +701,32 @@ as $$
 declare
   found_user public.users;
   updated_note public.notes;
-  found_notebook_id uuid;
+  old_notebook_id uuid;
+  new_notebook_id uuid;
+  target_section public.sections;
 begin
   found_user := private.user_from_token(p_token);
 
+  if p_section_id is not null then
+    target_section := private.section_from_token(p_token, p_section_id);
+  end if;
+
+  select nb.id
+    into old_notebook_id
+  from public.notes n
+  join public.sections s on s.id = n.section_id
+  join public.notebooks nb on nb.id = s.notebook_id
+  where n.id = p_id
+    and (nb.user_id = found_user.id or found_user.role = 'admin');
+
+  if old_notebook_id is null then
+    raise exception 'Not bulunamadı.';
+  end if;
+
   update public.notes n
   set title = coalesce(p_title, ''),
-      content = coalesce(p_content, '')
+      content = coalesce(p_content, ''),
+      section_id = coalesce(p_section_id, n.section_id)
   from public.sections s
   join public.notebooks nb on nb.id = s.notebook_id
   where n.id = p_id
@@ -672,13 +739,19 @@ begin
   end if;
 
   select s.notebook_id
-    into found_notebook_id
+    into new_notebook_id
   from public.sections s
   where s.id = updated_note.section_id;
 
   update public.notebooks
   set updated_at = now()
-  where id = found_notebook_id;
+  where id = old_notebook_id;
+
+  if new_notebook_id <> old_notebook_id then
+    update public.notebooks
+    set updated_at = now()
+    where id = new_notebook_id;
+  end if;
 
   return updated_note;
 end;
@@ -884,12 +957,12 @@ grant execute on function public.update_notebook(uuid, uuid, text) to anon, auth
 grant execute on function public.delete_notebook(uuid, uuid) to anon, authenticated;
 grant execute on function public.list_sections(uuid, uuid) to anon, authenticated;
 grant execute on function public.create_section(uuid, uuid, text) to anon, authenticated;
-grant execute on function public.update_section(uuid, uuid, text, int) to anon, authenticated;
+grant execute on function public.update_section(uuid, uuid, text, int, uuid) to anon, authenticated;
 grant execute on function public.delete_section(uuid, uuid) to anon, authenticated;
 grant execute on function public.list_notes(uuid, uuid) to anon, authenticated;
 grant execute on function public.get_note(uuid, uuid) to anon, authenticated;
 grant execute on function public.create_note(uuid, uuid, text, text) to anon, authenticated;
-grant execute on function public.update_note(uuid, uuid, text, text) to anon, authenticated;
+grant execute on function public.update_note(uuid, uuid, text, text, uuid) to anon, authenticated;
 grant execute on function public.delete_note(uuid, uuid) to anon, authenticated;
 grant execute on function public.admin_list_users(uuid) to anon, authenticated;
 grant execute on function public.admin_list_notes(uuid) to anon, authenticated;
