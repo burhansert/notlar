@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { GlyphSvg } from '@/components/GlyphSvg';
 import { colors, radius } from '@/constants/theme';
-import type { TurkishLetter } from '@/constants/turkish-alphabet';
+import type { HandwritingCharacter } from '@/constants/turkish-alphabet';
 import { glyphLetterForChar } from '@/lib/handwriting';
 import type { Stroke } from '@/lib/types';
 
@@ -41,7 +41,7 @@ export function HandwritingTextPreview({
   glyphMap,
 }: {
   text: string;
-  glyphMap: Map<TurkishLetter, Stroke[]>;
+  glyphMap: Map<HandwritingCharacter, Stroke[]>;
 }) {
   const value = text.trim();
 

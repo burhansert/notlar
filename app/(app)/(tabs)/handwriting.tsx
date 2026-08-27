@@ -13,7 +13,7 @@ import {
 import { HandwritingTextPreview } from '@/components/HandwritingTextPreview';
 import { LetterGrid } from '@/components/LetterGrid';
 import { colors, radius, spacing } from '@/constants/theme';
-import { letterRouteParam, TURKISH_LETTERS, type TurkishLetter } from '@/constants/turkish-alphabet';
+import { characterRouteParam, HANDWRITING_CHARACTERS, type HandwritingCharacter } from '@/constants/turkish-alphabet';
 import { listHandwritingGlyphs } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { buildGlyphMap } from '@/lib/handwriting';
@@ -25,7 +25,7 @@ export default function HandwritingScreen() {
   const [glyphs, setGlyphs] = useState<HandwritingGlyph[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [previewInput, setPreviewInput] = useState('Merhaba dünya');
+  const [previewInput, setPreviewInput] = useState('Merhaba dünya! 2026.');
 
   const load = useCallback(async () => {
     if (!session?.token) {
@@ -54,8 +54,8 @@ export default function HandwritingScreen() {
 
   const completedCount = useMemo(() => glyphMap.size, [glyphMap]);
 
-  function openLetter(letter: TurkishLetter) {
-    router.push(`/handwriting/${letterRouteParam(letter)}` as Href);
+  function openCharacter(character: HandwritingCharacter) {
+    router.push(`/handwriting/${characterRouteParam(character)}` as Href);
   }
 
   return (
@@ -78,8 +78,8 @@ export default function HandwritingScreen() {
           <View style={styles.hero}>
             <Text style={styles.heroTitle}>Kendi el yazın fontunuzu oluşturun</Text>
             <Text style={styles.heroText}>
-              Her harfin küçük ve büyük halini çizerek kendi fontunuzu oluşturun. Font yalnızca
-              sizin hesabınıza aittir.
+              Harflerin küçük ve büyük hallerini, rakamları ve sembolleri çizerek kendi fontunuzu
+              oluşturun. Font yalnızca sizin hesabınıza aittir.
             </Text>
           </View>
 
@@ -96,14 +96,14 @@ export default function HandwritingScreen() {
             <HandwritingTextPreview text={previewInput} glyphMap={glyphMap} />
             <Text style={styles.previewMeta}>
               {completedCount === 0
-                ? 'Önce küçük ve büyük harfleri çizerek fontunuzu oluşturun.'
-                : completedCount === TURKISH_LETTERS.length
-                  ? 'Tüm harfler hazır. Metniniz tamamen el yazınızla görünür.'
-                  : 'Çizilmemiş harfler soluk görünür; küçük ve büyük harfleri tamamladıkça el yazınızla değişir.'}
+                ? 'Önce harfleri, rakamları ve sembolleri çizerek fontunuzu oluşturun.'
+                : completedCount === HANDWRITING_CHARACTERS.length
+                  ? 'Tüm karakterler hazır. Metniniz tamamen el yazınızla görünür.'
+                  : 'Çizilmemiş karakterler soluk görünür; tamamladıkça el yazınızla değişir.'}
             </Text>
           </View>
 
-          <LetterGrid glyphs={glyphs} onPressLetter={openLetter} />
+          <LetterGrid glyphs={glyphs} onPressCharacter={openCharacter} />
         </ScrollView>
       )}
     </View>

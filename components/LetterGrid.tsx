@@ -3,9 +3,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlyphSvg } from '@/components/GlyphSvg';
 import {
+  HANDWRITING_CHARACTERS,
+  HANDWRITING_DIGITS,
+  HANDWRITING_SYMBOLS,
   TURKISH_LETTER_PAIRS,
-  TURKISH_LETTERS,
-  resolveTurkishLetter,
+  resolveHandwritingCharacter,
+  type HandwritingCharacter,
   type TurkishLetter,
 } from '@/constants/turkish-alphabet';
 import { colors, radius, spacing } from '@/constants/theme';
@@ -18,11 +21,11 @@ function hasStrokes(strokes?: Stroke[]) {
 }
 
 function GlyphPreview({
-  letter,
+  character,
   strokes,
   completed,
 }: {
-  letter: TurkishLetter;
+  character: HandwritingCharacter;
   strokes?: Stroke[];
   completed: boolean;
 }) {
@@ -31,9 +34,36 @@ function GlyphPreview({
       {strokes && strokes.length > 0 ? (
         <GlyphSvg strokes={strokes} size={PREVIEW_SIZE} />
       ) : (
-        <Text style={styles.previewLetter}>{letter}</Text>
+        <Text style={styles.previewCharacter}>{character}</Text>
       )}
     </View>
+  );
+}
+
+function CharacterCell({
+  character,
+  strokes,
+  onPress,
+  compact,
+}: {
+  character: HandwritingCharacter;
+  strokes?: Stroke[];
+  onPress: () => void;
+  compact?: boolean;
+}) {
+  const completed = hasStrokes(strokes);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        compact ? styles.compactCell : styles.singleCell,
+        completed ? styles.cellDone : null,
+        { opacity: pressed ? 0.85 : 1 },
+      ]}>
+      <GlyphPreview character={character} strokes={strokes} completed={completed} />
+      {completed ? <View style={styles.dot} /> : <Text style={styles.cellLabel}>{character}</Text>}
+    </Pressable>
   );
 }
 
@@ -56,7 +86,7 @@ function LetterCaseCell({
         completed ? styles.caseCellDone : null,
         { opacity: pressed ? 0.85 : 1 },
       ]}>
-      <GlyphPreview letter={letter} strokes={strokes} completed={completed} />
+      <GlyphPreview character={letter} strokes={strokes} completed={completed} />
       {completed ? <View style={styles.dot} /> : <Text style={styles.caseLabel}>{letter}</Text>}
     </Pressable>
   );
@@ -64,17 +94,17 @@ function LetterCaseCell({
 
 export function LetterGrid({
   glyphs,
-  onPressLetter,
+  onPressCharacter,
 }: {
   glyphs: HandwritingGlyph[];
-  onPressLetter: (letter: TurkishLetter) => void;
+  onPressCharacter: (character: HandwritingCharacter) => void;
 }) {
   const glyphMap = useMemo(() => {
-    const map = new Map<TurkishLetter, HandwritingGlyph>();
+    const map = new Map<HandwritingCharacter, HandwritingGlyph>();
     for (const glyph of glyphs) {
-      const letter = resolveTurkishLetter(glyph.letter);
-      if (letter) {
-        map.set(letter, glyph);
+      const character = resolveHandwritingCharacter(glyph.letter);
+      if (character) {
+        map.set(character, glyph);
       }
     }
     return map;
@@ -82,8 +112,8 @@ export function LetterGrid({
 
   const completedCount = useMemo(
     () =>
-      TURKISH_LETTERS.filter((letter) => {
-        const glyph = glyphMap.get(letter);
+      HANDWRITING_CHARACTERS.filter((character) => {
+        const glyph = glyphMap.get(character);
         return glyph && Array.isArray(glyph.stroke_data) && glyph.stroke_data.length > 0;
       }).length,
     [glyphMap]
@@ -92,33 +122,74 @@ export function LetterGrid({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Türkçe Alfabe</Text>
+        <Text style={styles.title}>Karakterler</Text>
         <Text style={styles.subtitle}>
-          {completedCount} / {TURKISH_LETTERS.length} harf tamamlandı (küçük + büyük)
+          {completedCount} / {HANDWRITING_CHARACTERS.length} karakter tamamlandı
         </Text>
       </View>
-      <View style={styles.grid}>
-        {TURKISH_LETTER_PAIRS.map(({ lower, upper }) => {
-          const lowerGlyph = glyphMap.get(lower);
-          const upperGlyph = glyphMap.get(upper);
-          const pairDone = hasStrokes(lowerGlyph?.stroke_data) && hasStrokes(upperGlyph?.stroke_data);
 
-          return (
-            <View key={lower} style={[styles.pairCell, pairDone ? styles.pairCellDone : null]}>
-              <LetterCaseCell
-                letter={lower}
-                strokes={lowerGlyph?.stroke_data}
-                onPress={() => onPressLetter(lower)}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Türkçe Alfabe</Text>
+        <View style={styles.grid}>
+          {TURKISH_LETTER_PAIRS.map(({ lower, upper }) => {
+            const lowerGlyph = glyphMap.get(lower);
+            const upperGlyph = glyphMap.get(upper);
+            const pairDone =
+              hasStrokes(lowerGlyph?.stroke_data) && hasStrokes(upperGlyph?.stroke_data);
+
+            return (
+              <View key={lower} style={[styles.pairCell, pairDone ? styles.pairCellDone : null]}>
+                <LetterCaseCell
+                  letter={lower}
+                  strokes={lowerGlyph?.stroke_data}
+                  onPress={() => onPressCharacter(lower)}
+                />
+                <View style={styles.pairDivider} />
+                <LetterCaseCell
+                  letter={upper}
+                  strokes={upperGlyph?.stroke_data}
+                  onPress={() => onPressCharacter(upper)}
+                />
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Rakamlar</Text>
+        <View style={styles.grid}>
+          {HANDWRITING_DIGITS.map((digit) => {
+            const glyph = glyphMap.get(digit);
+            return (
+              <CharacterCell
+                key={digit}
+                character={digit}
+                strokes={glyph?.stroke_data}
+                onPress={() => onPressCharacter(digit)}
+                compact
               />
-              <View style={styles.pairDivider} />
-              <LetterCaseCell
-                letter={upper}
-                strokes={upperGlyph?.stroke_data}
-                onPress={() => onPressLetter(upper)}
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Semboller</Text>
+        <View style={styles.grid}>
+          {HANDWRITING_SYMBOLS.map((symbol) => {
+            const glyph = glyphMap.get(symbol);
+            return (
+              <CharacterCell
+                key={symbol}
+                character={symbol}
+                strokes={glyph?.stroke_data}
+                onPress={() => onPressCharacter(symbol)}
+                compact
               />
-            </View>
-          );
-        })}
+            );
+          })}
+        </View>
       </View>
     </View>
   );
@@ -126,7 +197,7 @@ export function LetterGrid({
 
 const styles = StyleSheet.create({
   container: {
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   header: {
     gap: 4,
@@ -140,6 +211,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.muted,
     fontWeight: '600',
+  },
+  section: {
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.ink,
   },
   grid: {
     flexDirection: 'row',
@@ -174,7 +253,40 @@ const styles = StyleSheet.create({
   caseCellDone: {
     backgroundColor: 'transparent',
   },
+  singleCell: {
+    width: '18%',
+    minWidth: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    gap: 4,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  compactCell: {
+    width: '16%',
+    minWidth: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    gap: 4,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  cellDone: {
+    borderColor: colors.forest,
+    backgroundColor: colors.forestSoft,
+  },
   caseLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  cellLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.ink,
@@ -194,7 +306,7 @@ const styles = StyleSheet.create({
   previewCellDone: {
     opacity: 1,
   },
-  previewLetter: {
+  previewCharacter: {
     fontSize: 24,
     fontWeight: '800',
     color: colors.muted,
