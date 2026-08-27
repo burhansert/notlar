@@ -8,8 +8,8 @@ export function handwritingLayoutMetrics(glyphSize: number) {
     glyphSize,
     letterGap: Math.max(0, Math.round(glyphSize * 0.025)),
     wordGap: Math.max(6, Math.round(glyphSize * 0.28)),
-    paragraphGap: Math.max(8, Math.round(glyphSize * 0.3)),
-    rowGap: Math.max(4, Math.round(glyphSize * 0.15)),
+    paragraphGap: Math.max(14, Math.round(glyphSize * 0.45)),
+    rowGap: Math.max(12, Math.round(glyphSize * 0.32)),
     fallbackFontSize: Math.round(glyphSize * 0.58),
   };
 }

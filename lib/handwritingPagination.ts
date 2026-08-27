@@ -50,7 +50,7 @@ function estimateHandwritingLines(content: string, bodyWidth: number, glyphSize:
 
 function handwritingLinesPerPage(bodyHeight: number, glyphSize: number) {
   const { rowGap } = handwritingLayoutMetrics(glyphSize);
-  const lineHeight = glyphSize + rowGap + 4;
+  const lineHeight = glyphSize + rowGap + 8;
 
   if (bodyHeight <= 0) return 1;
   return Math.max(1, Math.floor(bodyHeight / lineHeight) - 1);
