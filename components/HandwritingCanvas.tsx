@@ -14,6 +14,8 @@ import { colors, radius } from '@/constants/theme';
 import { getHandwritingCanvasSize, normalizePoint } from '@/lib/handwriting';
 import type { Stroke } from '@/lib/types';
 
+const PENCIL_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><path d="M5 23 L9 19 L21 7 L23 9 L11 21 Z" fill="white" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/><path d="M21 7 L23 5 L25 7 L23 9 Z" fill="white" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/><line x1="9" y1="19" x2="11" y2="21" stroke="#000" stroke-width="1.6"/></svg>`;
+
 const webCanvasStyle: ViewStyle | undefined =
   Platform.OS === 'web'
     ? ({
@@ -21,7 +23,7 @@ const webCanvasStyle: ViewStyle | undefined =
         WebkitUserSelect: 'none',
         WebkitTouchCallout: 'none',
         touchAction: 'none',
-        cursor: 'crosshair',
+        cursor: `url("data:image/svg+xml,${encodeURIComponent(PENCIL_CURSOR_SVG)}") 4 4, crosshair`,
       } as unknown as ViewStyle)
     : undefined;
 
@@ -102,7 +104,7 @@ export function HandwritingCanvas({
         <GlyphSvg
           strokes={strokes}
           size={canvasSize}
-          strokeColor={colors.ink}
+          strokeColor={colors.handwritingInk}
           normalize={false}
         />
       </View>
