@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { HeaderBackButton } from '@/components/HeaderBackButton';
 import { NoteCard } from '@/components/NoteCard';
 import { EmptyState } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
@@ -70,6 +71,13 @@ export default function SectionNotesScreen() {
       <Stack.Screen
         options={{
           title: headerTitle,
+          headerLeft: () => (
+            <HeaderBackButton
+              fallbackHref={
+                `/notebook/${notebookId}?title=${encodeURIComponent(notebookTitle?.trim() || 'Not defteri')}` as Href
+              }
+            />
+          ),
         }}
       />
       <View style={styles.search}>

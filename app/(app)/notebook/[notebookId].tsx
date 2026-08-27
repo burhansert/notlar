@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { HeaderBackButton } from '@/components/HeaderBackButton';
 import { SectionCard } from '@/components/SectionCard';
 import { NotebookSectionPicker } from '@/components/NotebookSectionPicker';
 import { ActionMenuModal, ConfirmModal, EmptyState, PromptModal } from '@/components/ui';
@@ -129,7 +130,12 @@ export default function SectionsScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: notebookTitle }} />
+      <Stack.Screen
+        options={{
+          title: notebookTitle,
+          headerLeft: () => <HeaderBackButton fallbackHref="/(tabs)" />,
+        }}
+      />
       <View style={styles.search}>
         <Ionicons name="search-outline" size={18} color={colors.muted} />
         <TextInput
