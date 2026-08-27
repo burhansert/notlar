@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import { SectionCard } from '@/components/SectionCard';
-import { EmptyState, PromptModal } from '@/components/ui';
+import { ActionMenuModal, ConfirmModal, EmptyState, PromptModal } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
 import { createSection, deleteSection, listSections, updateSection } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -29,6 +29,8 @@ export default function SectionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Section | null>(null);
+  const [menuTarget, setMenuTarget] = useState<Section | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Section | null>(null);
 
   const notebookTitle = title?.trim() || 'Not defteri';
 
@@ -85,38 +87,19 @@ export default function SectionsScreen() {
   }
 
   function openMenu(section: Section) {
-    Alert.alert(section.title.trim() || 'Bölüm', 'Ne yapmak istersiniz?', [
-      { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Yeniden adlandır', onPress: () => setEditTarget(section) },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: () => confirmDelete(section),
-      },
-    ]);
+    setMenuTarget(section);
   }
 
-  function confirmDelete(section: Section) {
-    Alert.alert(
-      'Bölümü sil',
-      'Bu bölüm ve içindeki tüm notlar kalıcı olarak silinecek.',
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            if (!session?.token) return;
-            try {
-              await deleteSection(session.token, section.id);
-              load();
-            } catch (err) {
-              Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
-            }
-          },
-        },
-      ]
-    );
+  async function handleDelete() {
+    if (!session?.token || !deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    try {
+      await deleteSection(session.token, target.id);
+      load();
+    } catch (err) {
+      Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
+    }
   }
 
   return (
@@ -195,6 +178,36 @@ export default function SectionsScreen() {
         initialValue={editTarget?.title ?? ''}
         onCancel={() => setEditTarget(null)}
         onConfirm={handleEdit}
+      />
+      <ActionMenuModal
+        visible={Boolean(menuTarget)}
+        title={menuTarget?.title.trim() || 'Bölüm'}
+        message="Ne yapmak istersiniz?"
+        onClose={() => setMenuTarget(null)}
+        actions={[
+          {
+            label: 'Yeniden adlandır',
+            onPress: () => {
+              if (menuTarget) setEditTarget(menuTarget);
+            },
+          },
+          {
+            label: 'Sil',
+            destructive: true,
+            onPress: () => {
+              if (menuTarget) setDeleteTarget(menuTarget);
+            },
+          },
+        ]}
+      />
+      <ConfirmModal
+        visible={Boolean(deleteTarget)}
+        title="Bölümü sil"
+        message="Bu bölüm ve içindeki tüm notlar kalıcı olarak silinecek."
+        confirmLabel="Sil"
+        destructive
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
       />
     </View>
   );

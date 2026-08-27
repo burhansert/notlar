@@ -18,27 +18,35 @@ export function NotebookCard({
   const notes = Number(notebook.note_count) || 0;
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, shadow.card, { opacity: pressed ? 0.85 : 1 }]}>
-      <View style={styles.iconWrap}>
-        <Ionicons name="book-outline" size={22} color={colors.forest} />
-      </View>
-      <View style={styles.body}>
-        <Text style={styles.title} numberOfLines={1}>
-          {notebook.title.trim() || 'Başlıksız not defteri'}
-        </Text>
-        <Text style={styles.meta}>
-          {sectionCountLabel(sections)} · {noteCountLabel(notes)}
-        </Text>
-        <Text style={styles.date}>{formatDateTime(notebook.updated_at)}</Text>
-      </View>
+    <View style={[styles.card, shadow.card]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.main, { opacity: pressed ? 0.85 : 1 }]}>
+        <View style={styles.iconWrap}>
+          <Ionicons name="book-outline" size={22} color={colors.forest} />
+        </View>
+        <View style={styles.body}>
+          <Text style={styles.title} numberOfLines={1}>
+            {notebook.title.trim() || 'Başlıksız not defteri'}
+          </Text>
+          <Text style={styles.meta}>
+            {sectionCountLabel(sections)} · {noteCountLabel(notes)}
+          </Text>
+          <Text style={styles.date}>{formatDateTime(notebook.updated_at)}</Text>
+        </View>
+      </Pressable>
       {onMenuPress ? (
-        <Pressable onPress={onMenuPress} hitSlop={12} style={styles.menu}>
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            onMenuPress();
+          }}
+          hitSlop={12}
+          style={({ pressed }) => [styles.menu, { opacity: pressed ? 0.7 : 1 }]}>
           <Ionicons name="ellipsis-vertical" size={18} color={colors.muted} />
         </Pressable>
       ) : null}
-    </Pressable>
+    </View>
   );
 }
 
@@ -48,10 +56,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  main: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    padding: spacing.md,
   },
   iconWrap: {
     width: 44,
@@ -81,6 +94,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   menu: {
-    padding: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
   },
 });

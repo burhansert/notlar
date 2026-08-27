@@ -17,23 +17,31 @@ export function SectionCard({
   const notes = Number(section.note_count) || 0;
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, shadow.card, { opacity: pressed ? 0.85 : 1 }]}>
-      <View style={styles.stripe} />
-      <View style={styles.body}>
-        <Text style={styles.title} numberOfLines={1}>
-          {section.title.trim() || 'Başlıksız bölüm'}
-        </Text>
-        <Text style={styles.meta}>{noteCountLabel(notes)}</Text>
-        <Text style={styles.date}>{formatDateTime(section.updated_at)}</Text>
-      </View>
+    <View style={[styles.card, shadow.card]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.main, { opacity: pressed ? 0.85 : 1 }]}>
+        <View style={styles.stripe} />
+        <View style={styles.body}>
+          <Text style={styles.title} numberOfLines={1}>
+            {section.title.trim() || 'Başlıksız bölüm'}
+          </Text>
+          <Text style={styles.meta}>{noteCountLabel(notes)}</Text>
+          <Text style={styles.date}>{formatDateTime(section.updated_at)}</Text>
+        </View>
+      </Pressable>
       {onMenuPress ? (
-        <Pressable onPress={onMenuPress} hitSlop={12} style={styles.menu}>
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            onMenuPress();
+          }}
+          hitSlop={12}
+          style={({ pressed }) => [styles.menu, { opacity: pressed ? 0.7 : 1 }]}>
           <Ionicons name="ellipsis-vertical" size={18} color={colors.muted} />
         </Pressable>
       ) : null}
-    </Pressable>
+    </View>
   );
 }
 
@@ -46,6 +54,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  main: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   stripe: {
     width: 6,
@@ -75,5 +88,7 @@ const styles = StyleSheet.create({
   menu: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
   },
 });

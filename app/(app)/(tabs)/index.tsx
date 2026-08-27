@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import { NotebookCard } from '@/components/NotebookCard';
-import { EmptyState, PromptModal } from '@/components/ui';
+import { ActionMenuModal, ConfirmModal, EmptyState, PromptModal } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
 import { createNotebook, deleteNotebook, listNotebooks, updateNotebook } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -28,6 +28,8 @@ export default function NotebooksScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Notebook | null>(null);
+  const [menuTarget, setMenuTarget] = useState<Notebook | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Notebook | null>(null);
 
   const load = useCallback(async () => {
     if (!session?.token) {
@@ -82,38 +84,19 @@ export default function NotebooksScreen() {
   }
 
   function openMenu(notebook: Notebook) {
-    Alert.alert(notebook.title.trim() || 'Not defteri', 'Ne yapmak istersiniz?', [
-      { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Yeniden adlandır', onPress: () => setEditTarget(notebook) },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: () => confirmDelete(notebook),
-      },
-    ]);
+    setMenuTarget(notebook);
   }
 
-  function confirmDelete(notebook: Notebook) {
-    Alert.alert(
-      'Not defterini sil',
-      'Bu not defteri ve içindeki tüm bölümler ile notlar kalıcı olarak silinecek.',
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            if (!session?.token) return;
-            try {
-              await deleteNotebook(session.token, notebook.id);
-              load();
-            } catch (err) {
-              Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
-            }
-          },
-        },
-      ]
-    );
+  async function handleDelete() {
+    if (!session?.token || !deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    try {
+      await deleteNotebook(session.token, target.id);
+      load();
+    } catch (err) {
+      Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
+    }
   }
 
   return (
@@ -191,6 +174,36 @@ export default function NotebooksScreen() {
         initialValue={editTarget?.title ?? ''}
         onCancel={() => setEditTarget(null)}
         onConfirm={handleEdit}
+      />
+      <ActionMenuModal
+        visible={Boolean(menuTarget)}
+        title={menuTarget?.title.trim() || 'Not defteri'}
+        message="Ne yapmak istersiniz?"
+        onClose={() => setMenuTarget(null)}
+        actions={[
+          {
+            label: 'Yeniden adlandır',
+            onPress: () => {
+              if (menuTarget) setEditTarget(menuTarget);
+            },
+          },
+          {
+            label: 'Sil',
+            destructive: true,
+            onPress: () => {
+              if (menuTarget) setDeleteTarget(menuTarget);
+            },
+          },
+        ]}
+      />
+      <ConfirmModal
+        visible={Boolean(deleteTarget)}
+        title="Not defterini sil"
+        message="Bu not defteri ve içindeki tüm bölümler ile notlar kalıcı olarak silinecek."
+        confirmLabel="Sil"
+        destructive
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
       />
     </View>
   );

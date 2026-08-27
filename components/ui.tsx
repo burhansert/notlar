@@ -148,6 +148,98 @@ export function ErrorBanner({ message }: { message: string | null }) {
   );
 }
 
+export type MenuAction = {
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+};
+
+export function ActionMenuModal({
+  visible,
+  title,
+  message,
+  actions,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  message?: string;
+  actions: MenuAction[];
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          {message ? <Text style={styles.modalMessage}>{message}</Text> : null}
+          <View style={styles.menuActions}>
+            {actions.map((action) => (
+              <Pressable
+                key={action.label}
+                onPress={() => {
+                  action.onPress();
+                  onClose();
+                }}
+                style={({ pressed }) => [styles.menuAction, { opacity: pressed ? 0.7 : 1 }]}>
+                <Text
+                  style={[
+                    styles.menuActionText,
+                    action.destructive ? styles.menuActionDanger : null,
+                  ]}>
+                  {action.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Button label="Vazgeç" variant="ghost" onPress={onClose} />
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+export function ConfirmModal({
+  visible,
+  title,
+  message,
+  confirmLabel = 'Onayla',
+  destructive = false,
+  onConfirm,
+  onCancel,
+}: {
+  visible: boolean;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  destructive?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <Pressable style={styles.modalBackdrop} onPress={onCancel}>
+        <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <Text style={styles.modalMessage}>{message}</Text>
+          <View style={styles.modalActions}>
+            <View style={styles.modalAction}>
+              <Button label="Vazgeç" variant="ghost" onPress={onCancel} />
+            </View>
+            <View style={styles.modalAction}>
+              <Button
+                label={confirmLabel}
+                variant={destructive ? 'danger' : 'primary'}
+                onPress={onConfirm}
+              />
+            </View>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export function PromptModal({
   visible,
   title,
@@ -318,6 +410,31 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: colors.ink,
+  },
+  modalMessage: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.muted,
+    fontWeight: '600',
+  },
+  menuActions: {
+    gap: 8,
+  },
+  menuAction: {
+    minHeight: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.paperDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  menuActionText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  menuActionDanger: {
+    color: colors.danger,
   },
   modalActions: {
     flexDirection: 'row',
