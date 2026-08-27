@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { HandwritingIcon } from '@/components/HandwritingIcon';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
 import { formatDateTime, previewText } from '@/lib/format';
 import type { Note } from '@/lib/types';
@@ -9,11 +10,13 @@ export function NoteCard({
   note,
   onPress,
   onViewPress,
+  onHandwritingPress,
   author,
 }: {
   note: Note;
   onPress: () => void;
   onViewPress?: () => void;
+  onHandwritingPress?: () => void;
   author?: string;
 }) {
   return (
@@ -40,13 +43,25 @@ export function NoteCard({
           ) : null}
         </View>
       </Pressable>
-      {onViewPress ? (
-        <Pressable
-          onPress={onViewPress}
-          hitSlop={12}
-          style={({ pressed }) => [styles.viewButton, { opacity: pressed ? 0.7 : 1 }]}>
-          <Ionicons name="eye" size={22} color={colors.ink} />
-        </Pressable>
+      {onHandwritingPress || onViewPress ? (
+        <View style={styles.actions}>
+          {onHandwritingPress ? (
+            <Pressable
+              onPress={onHandwritingPress}
+              hitSlop={12}
+              style={({ pressed }) => [styles.actionButton, { opacity: pressed ? 0.7 : 1 }]}>
+              <HandwritingIcon size={22} />
+            </Pressable>
+          ) : null}
+          {onViewPress ? (
+            <Pressable
+              onPress={onViewPress}
+              hitSlop={12}
+              style={({ pressed }) => [styles.actionButton, { opacity: pressed ? 0.7 : 1 }]}>
+              <Ionicons name="eye" size={22} color={colors.ink} />
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );
@@ -77,10 +92,14 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: 6,
   },
-  viewButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'stretch',
+  },
+  actionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: spacing.md,
     justifyContent: 'center',
   },
   title: {

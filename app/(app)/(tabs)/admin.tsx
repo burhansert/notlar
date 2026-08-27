@@ -204,6 +204,7 @@ export default function AdminScreen() {
                   note={item}
                   author={author}
                   onPress={() => router.push(`/note/${item.id}` as Href)}
+                  onHandwritingPress={() => router.push(`/note/handwriting/${item.id}` as Href)}
                   onViewPress={() => router.push(`/note/view/${item.id}` as Href)}
                 />
                 <Pressable onPress={() => deleteNote(item.id)} style={styles.deleteNote}>

@@ -123,6 +123,13 @@ export default function SectionNotesScreen() {
             <NoteCard
               note={item}
               onPress={() => router.push(`/note/${item.id}` as Href)}
+              onHandwritingPress={() =>
+                router.push(
+                  `/note/handwriting/${item.id}?sectionId=${sectionId}&notebookId=${notebookId}&notebookTitle=${encodeURIComponent(
+                    notebookTitle?.trim() || 'Not defteri'
+                  )}` as Href
+                )
+              }
               onViewPress={() =>
                 router.push(
                   `/note/view/${item.id}?sectionId=${sectionId}&notebookId=${notebookId}&notebookTitle=${encodeURIComponent(
