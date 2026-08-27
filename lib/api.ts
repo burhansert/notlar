@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { translateError } from '@/lib/credentials';
+import { normalizeTurkishLetter } from '@/constants/turkish-alphabet';
 import type {
   AppSession,
   HandwritingGlyph,
@@ -165,22 +166,35 @@ export function listHandwritingGlyphs(token: string) {
 }
 
 export async function getHandwritingGlyph(token: string, letter: string) {
+  const normalized = normalizeTurkishLetter(letter);
+  if (!normalized) return null;
+
   const data = await rpc<HandwritingGlyph | HandwritingGlyph[] | null>('get_handwriting_glyph', {
     p_token: token,
-    p_letter: letter,
+    p_letter: normalized,
   });
   const glyph = Array.isArray(data) ? data[0] : data;
   return glyph ?? null;
 }
 
 export function upsertHandwritingGlyph(token: string, letter: string, strokeData: Stroke[]) {
+  const normalized = normalizeTurkishLetter(letter);
+  if (!normalized) {
+    return Promise.reject(new Error('Geçerli bir harf seçin.'));
+  }
+
   return rpc<HandwritingGlyph>('upsert_handwriting_glyph', {
     p_token: token,
-    p_letter: letter,
+    p_letter: normalized,
     p_stroke_data: strokeData,
   });
 }
 
 export function deleteHandwritingGlyph(token: string, letter: string) {
-  return rpc<null>('delete_handwriting_glyph', { p_token: token, p_letter: letter });
+  const normalized = normalizeTurkishLetter(letter);
+  if (!normalized) {
+    return Promise.reject(new Error('Geçerli bir harf seçin.'));
+  }
+
+  return rpc<null>('delete_handwriting_glyph', { p_token: token, p_letter: normalized });
 }

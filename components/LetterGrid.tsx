@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlyphSvg } from '@/components/GlyphSvg';
-import { TURKISH_LETTERS, type TurkishLetter } from '@/constants/turkish-alphabet';
+import { TURKISH_LETTERS, normalizeTurkishLetter, type TurkishLetter } from '@/constants/turkish-alphabet';
 import { colors, radius, spacing } from '@/constants/theme';
 import type { HandwritingGlyph, Stroke } from '@/lib/types';
 
@@ -38,7 +38,10 @@ export function LetterGrid({
   const glyphMap = useMemo(() => {
     const map = new Map<string, HandwritingGlyph>();
     for (const glyph of glyphs) {
-      map.set(glyph.letter, glyph);
+      const letter = normalizeTurkishLetter(glyph.letter);
+      if (letter) {
+        map.set(letter, glyph);
+      }
     }
     return map;
   }, [glyphs]);
