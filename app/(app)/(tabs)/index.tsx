@@ -8,23 +8,36 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
+  Text,
   TextInput,
   View,
 } from 'react-native';
 
+import { NoteCard } from '@/components/NoteCard';
 import { NotebookCard } from '@/components/NotebookCard';
 import { NotebookPasswordModal, type NotebookPasswordMode } from '@/components/NotebookPasswordModal';
 import { ActionMenuModal, ConfirmModal, EmptyState, PromptModal } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
-import { createNotebook, deleteNotebook, listNotebooks, updateNotebook } from '@/lib/api';
+import {
+  createNotebook,
+  deleteNotebook,
+  listNotebookPageNotes,
+  listNotebooks,
+  updateNotebook,
+} from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useNotebookLock } from '@/lib/notebookLock';
-import type { Notebook } from '@/lib/types';
+import type { Note, Notebook } from '@/lib/types';
+
+type ListItem =
+  | { kind: 'notebook'; id: string; notebook: Notebook }
+  | { kind: 'note'; id: string; note: Note };
 
 export default function NotebooksScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -43,16 +56,22 @@ export default function NotebooksScreen() {
   const load = useCallback(async () => {
     if (!session?.token) {
       setNotebooks([]);
+      setNotes([]);
       setLoading(false);
       setRefreshing(false);
       return;
     }
     try {
-      const data = await listNotebooks(session.token);
-      setNotebooks(data ?? []);
-      notebookLock.syncNotebooks(data ?? []);
+      const [notebookData, noteData] = await Promise.all([
+        listNotebooks(session.token),
+        listNotebookPageNotes(session.token),
+      ]);
+      setNotebooks(notebookData ?? []);
+      setNotes(noteData ?? []);
+      syncNotebooks(notebookData ?? []);
     } catch {
       setNotebooks([]);
+      setNotes([]);
     }
     setLoading(false);
     setRefreshing(false);
@@ -64,11 +83,39 @@ export default function NotebooksScreen() {
     }, [load])
   );
 
-  const filtered = useMemo(() => {
+  const listItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return notebooks;
-    return notebooks.filter((notebook) => notebook.title.toLowerCase().includes(q));
-  }, [notebooks, query]);
+    const items: ListItem[] = [];
+
+    for (const notebook of notebooks) {
+      if (q && !notebook.title.toLowerCase().includes(q)) continue;
+      items.push({ kind: 'notebook', id: `notebook-${notebook.id}`, notebook });
+    }
+
+    for (const note of notes) {
+      if (
+        q &&
+        !note.title.toLowerCase().includes(q) &&
+        !note.content.toLowerCase().includes(q)
+      ) {
+        continue;
+      }
+      items.push({ kind: 'note', id: `note-${note.id}`, note });
+    }
+
+    return items;
+  }, [notebooks, notes, query]);
+
+  const notebookHeaderIndex = useMemo(
+    () => listItems.findIndex((entry) => entry.kind === 'notebook'),
+    [listItems]
+  );
+  const noteHeaderIndex = useMemo(
+    () => listItems.findIndex((entry) => entry.kind === 'note'),
+    [listItems]
+  );
+  const hasNotebooks = listItems.some((entry) => entry.kind === 'notebook');
+  const hasNotes = listItems.some((entry) => entry.kind === 'note');
 
   async function handleCreate(title: string) {
     if (!session?.token) return;
@@ -162,7 +209,7 @@ export default function NotebooksScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Not defterlerinde ara"
+          placeholder="Not defterleri ve notlarda ara"
           placeholderTextColor={colors.muted}
           style={styles.searchInput}
         />
@@ -171,7 +218,7 @@ export default function NotebooksScreen() {
         <ActivityIndicator color={colors.forest} style={styles.loader} />
       ) : (
         <FlatList
-          data={filtered}
+          data={listItems}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           refreshControl={
@@ -188,7 +235,7 @@ export default function NotebooksScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="book-outline"
-              title={query ? 'Sonuç yok' : 'Henüz not defteri yok'}
+              title={query ? 'Sonuç yok' : 'Henüz not defteri veya not yok'}
               subtitle={
                 query
                   ? 'Farklı bir arama deneyin.'
@@ -196,13 +243,43 @@ export default function NotebooksScreen() {
               }
             />
           }
-          renderItem={({ item }) => (
-            <NotebookCard
-              notebook={item}
-              onPress={() => openNotebook(item)}
-              onMenuPress={() => openMenu(item)}
-            />
-          )}
+          renderItem={({ item, index }) => {
+            const showNotebookHeader = item.kind === 'notebook' && index === notebookHeaderIndex;
+            const showNoteHeader = item.kind === 'note' && index === noteHeaderIndex;
+
+            return (
+              <View style={styles.itemGroup}>
+                {showNotebookHeader && hasNotebooks ? (
+                  <Text style={styles.sectionLabel}>Not Defterleri</Text>
+                ) : null}
+                {showNoteHeader && hasNotes ? (
+                  <Text style={styles.sectionLabel}>Notlar</Text>
+                ) : null}
+                {item.kind === 'notebook' ? (
+                  <NotebookCard
+                    notebook={item.notebook}
+                    onPress={() => openNotebook(item.notebook)}
+                    onMenuPress={() => openMenu(item.notebook)}
+                  />
+                ) : (
+                  <NoteCard
+                    note={item.note}
+                    onPress={() => router.push(`/note/${item.note.id}` as Href)}
+                    onHandwritingPress={() =>
+                      router.push(
+                        `/note/handwriting/${item.note.id}?sectionId=${item.note.section_id}&notebookId=${item.note.notebook_id ?? ''}` as Href
+                      )
+                    }
+                    onViewPress={() =>
+                      router.push(
+                        `/note/view/${item.note.id}?sectionId=${item.note.section_id}&notebookId=${item.note.notebook_id ?? ''}` as Href
+                      )
+                    }
+                  />
+                )}
+              </View>
+            );
+          }}
         />
       )}
       <Pressable
@@ -340,6 +417,17 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: 120,
+  },
+  itemGroup: {
+    gap: 8,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 4,
   },
   loader: {
     marginTop: 40,

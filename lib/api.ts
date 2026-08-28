@@ -5,6 +5,7 @@ import type {
   AppSession,
   HandwritingGlyph,
   Note,
+  NoteListContext,
   Notebook,
   ProfileWithNotes,
   Section,
@@ -121,6 +122,19 @@ export function listNotes(token: string, sectionId: string) {
   }).then((rows) => rows ?? []);
 }
 
+export function listNotebookPageNotes(token: string) {
+  return rpc<Note[] | null>('list_notebook_page_notes', { p_token: token }).then(
+    (rows) => rows ?? []
+  );
+}
+
+export function listSectionsPageNotes(token: string, notebookId: string) {
+  return rpc<Note[] | null>('list_sections_page_notes', {
+    p_token: token,
+    p_notebook_id: notebookId,
+  }).then((rows) => rows ?? []);
+}
+
 export async function getNote(token: string, id: string) {
   const data = await rpc<Note | Note[] | null>('get_note', { p_token: token, p_id: id });
   const note = Array.isArray(data) ? data[0] : data;
@@ -132,7 +146,11 @@ export function createNote(
   token: string,
   title: string,
   content: string,
-  options?: { sectionId?: string; notebookId?: string }
+  options?: {
+    sectionId?: string;
+    notebookId?: string;
+    listContext?: NoteListContext;
+  }
 ) {
   return rpc<Note>('create_note', {
     p_token: token,
@@ -140,6 +158,7 @@ export function createNote(
     p_content: content,
     p_section_id: options?.sectionId ?? null,
     p_notebook_id: options?.notebookId ?? null,
+    p_list_context: options?.listContext ?? null,
   });
 }
 
