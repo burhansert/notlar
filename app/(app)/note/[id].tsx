@@ -178,7 +178,6 @@ export default function NoteEditorScreen() {
               setTitle(value);
               touch(activeNotebookId);
             }}
-            onKeyPress={() => touch(activeNotebookId)}
             placeholder="Başlık"
             placeholderTextColor={colors.muted}
             style={styles.title}
@@ -190,7 +189,6 @@ export default function NoteEditorScreen() {
               setContent(value);
               touch(activeNotebookId);
             }}
-            onKeyPress={() => touch(activeNotebookId)}
             placeholder="Notunuzu buraya yazın…"
             placeholderTextColor={colors.muted}
             style={styles.body}

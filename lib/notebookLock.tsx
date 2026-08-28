@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { AppState, Platform, type ViewProps } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import * as api from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -46,13 +46,20 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
   const token = session?.token;
   const [protectedIds, setProtectedIds] = useState<Record<string, true>>({});
   const [unlocks, setUnlocks] = useState<Record<string, number>>({});
-  const unlocksRef = useRef(unlocks);
+  const unlocksRef = useRef<Record<string, number>>({});
   const lastTouchRef = useRef<Record<string, number>>({});
   const tokenRef = useRef(token);
   const sessionCountsRef = useRef<Record<string, number>>({});
 
-  unlocksRef.current = unlocks;
   tokenRef.current = token;
+
+  const writeUnlocks = useCallback((updater: (prev: Record<string, number>) => Record<string, number>) => {
+    setUnlocks(() => {
+      const next = updater(unlocksRef.current);
+      unlocksRef.current = next;
+      return next;
+    });
+  }, []);
 
   const markProtected = useCallback((notebookId: string, locked: boolean) => {
     setProtectedIds((prev) => {
@@ -66,14 +73,14 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
       return next;
     });
     if (!locked) {
-      setUnlocks((prev) => {
+      writeUnlocks((prev) => {
         if (!prev[notebookId]) return prev;
         const next = { ...prev };
         delete next[notebookId];
         return next;
       });
     }
-  }, []);
+  }, [writeUnlocks]);
 
   const syncNotebooks = useCallback((notebooks: Notebook[]) => {
     setProtectedIds((prev) => {
@@ -92,8 +99,7 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
       });
       return changed ? next : prev;
     });
-    setUnlocks((prev) => {
-      const lockedIds = new Set(notebooks.filter((notebook) => notebook.is_locked).map((notebook) => notebook.id));
+    writeUnlocks((prev) => {
       let changed = false;
       const next = { ...prev };
       Object.keys(next).forEach((id) => {
@@ -102,14 +108,13 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
           delete next[id];
           changed = true;
         }
-        if (notebook && notebook.is_locked) lockedIds.add(id);
       });
       return changed ? next : prev;
     });
-  }, []);
+  }, [writeUnlocks]);
 
   const lock = useCallback(async (notebookId: string) => {
-    setUnlocks((prev) => {
+    writeUnlocks((prev) => {
       if (!prev[notebookId]) return prev;
       const next = { ...prev };
       delete next[notebookId];
@@ -123,7 +128,7 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
     } catch {
       // Yerel kilit yine de uygulanır.
     }
-  }, []);
+  }, [writeUnlocks]);
 
   const lockAllUnlocked = useCallback(() => {
     const now = Date.now();
@@ -150,20 +155,18 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
       if (!tokenRef.current) throw new Error('Oturum gerekli.');
       await api.unlockNotebook(tokenRef.current, notebookId, password);
       markProtected(notebookId, true);
-      setUnlocks((prev) => ({ ...prev, [notebookId]: Date.now() }));
+      writeUnlocks((prev) => ({ ...prev, [notebookId]: Date.now() }));
       lastTouchRef.current[notebookId] = Date.now();
     },
-    [markProtected]
+    [markProtected, writeUnlocks]
   );
 
   const touch = useCallback(
     (notebookId?: string | null) => {
       if (!notebookId || !unlocksRef.current[notebookId]) return;
       const now = Date.now();
-      setUnlocks((prev) => {
-        if (!prev[notebookId]) return prev;
-        return { ...prev, [notebookId]: now };
-      });
+      // Yazmayı bozmamak için React state güncellenmez; sayaç ref'ten okur.
+      unlocksRef.current = { ...unlocksRef.current, [notebookId]: now };
       const last = lastTouchRef.current[notebookId] ?? 0;
       if (now - last < TOUCH_THROTTLE_MS) return;
       lastTouchRef.current[notebookId] = now;
@@ -181,10 +184,10 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
       if (!tokenRef.current) throw new Error('Oturum gerekli.');
       await api.setNotebookPassword(tokenRef.current, notebookId, newPassword, currentPassword);
       markProtected(notebookId, true);
-      setUnlocks((prev) => ({ ...prev, [notebookId]: Date.now() }));
+      writeUnlocks((prev) => ({ ...prev, [notebookId]: Date.now() }));
       lastTouchRef.current[notebookId] = Date.now();
     },
-    [markProtected]
+    [markProtected, writeUnlocks]
   );
 
   const removePassword = useCallback(
@@ -235,10 +238,10 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (token) return;
-    setUnlocks({});
+    writeUnlocks(() => ({}));
     lastTouchRef.current = {};
     sessionCountsRef.current = {};
-  }, [token]);
+  }, [token, writeUnlocks]);
 
   const isProtected = useCallback(
     (notebookId?: string | null) => Boolean(notebookId && protectedIds[notebookId]),
@@ -255,15 +258,12 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
     [isProtected, isUnlocked]
   );
 
-  const getRemainingLockMs = useCallback(
-    (notebookId?: string | null, now = Date.now()) => {
-      if (!notebookId) return 0;
-      const lastActivity = unlocks[notebookId];
-      if (!lastActivity) return 0;
-      return Math.max(0, NOTEBOOK_IDLE_LOCK_MS - (now - lastActivity));
-    },
-    [unlocks]
-  );
+  const getRemainingLockMs = useCallback((notebookId?: string | null, now = Date.now()) => {
+    if (!notebookId) return 0;
+    const lastActivity = unlocksRef.current[notebookId];
+    if (!lastActivity) return 0;
+    return Math.max(0, NOTEBOOK_IDLE_LOCK_MS - (now - lastActivity));
+  }, []);
 
   const value = useMemo<NotebookLockContextValue>(
     () => ({
@@ -309,19 +309,4 @@ export function useNotebookLock() {
     throw new Error('useNotebookLock, NotebookLockProvider içinde kullanılmalı.');
   }
   return context;
-}
-
-export function notebookSessionViewProps(touch: (notebookId?: string | null) => void, notebookId?: string): ViewProps {
-  return {
-    onTouchStart: () => touch(notebookId),
-    ...(Platform.OS === 'web'
-      ? {
-          onMouseMove: () => touch(notebookId),
-          onKeyDown: () => touch(notebookId),
-          onKeyUp: () => touch(notebookId),
-        }
-      : {
-          onKeyPress: () => touch(notebookId),
-        }),
-  };
 }

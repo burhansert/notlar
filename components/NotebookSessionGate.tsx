@@ -5,10 +5,7 @@ import { Pressable, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { NotebookPasswordModal } from '@/components/NotebookPasswordModal';
 import { colors, radius, spacing } from '@/constants/theme';
-import {
-  notebookSessionViewProps,
-  useNotebookLock,
-} from '@/lib/notebookLock';
+import { useNotebookLock } from '@/lib/notebookLock';
 
 const NOTEBOOKS_HREF = '/(tabs)' as Href;
 
@@ -35,18 +32,18 @@ export function NotebookSessionGate({
       if (!notebookId) return undefined;
       enterSession(notebookId);
 
-      const resetTimer = () => touch(notebookId);
+      const resetTimer = (event: Event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const tag = target.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && !target.isContentEditable) return;
+        touch(notebookId);
+      };
       const webListeners =
         Platform.OS === 'web' && typeof document !== 'undefined'
           ? (() => {
-              document.addEventListener('keydown', resetTimer, true);
-              document.addEventListener('keyup', resetTimer, true);
-              document.addEventListener('input', resetTimer, true);
-              return () => {
-                document.removeEventListener('keydown', resetTimer, true);
-                document.removeEventListener('keyup', resetTimer, true);
-                document.removeEventListener('input', resetTimer, true);
-              };
+              document.addEventListener('input', resetTimer);
+              return () => document.removeEventListener('input', resetTimer);
             })()
           : null;
 
@@ -94,7 +91,7 @@ export function NotebookSessionGate({
   }
 
   return (
-    <View style={styles.wrap} {...notebookSessionViewProps(touch, notebookId)}>
+    <View style={styles.wrap}>
       {children}
       {locked ? (
         <View style={styles.cover}>
