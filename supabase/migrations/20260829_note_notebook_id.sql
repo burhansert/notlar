@@ -6,21 +6,23 @@ ALTER TABLE public.notes
   ADD COLUMN IF NOT EXISTS notebook_id uuid REFERENCES public.notebooks (id) ON DELETE CASCADE;
 
 UPDATE public.notes n
-SET
-  notebook_id = s.notebook_id,
-  section_id = NULL
+SET notebook_id = s.notebook_id
 FROM public.sections s
 WHERE n.section_id = s.id
   AND n.list_context = 'sections';
+
+ALTER TABLE public.notes
+  ALTER COLUMN section_id DROP NOT NULL;
+
+UPDATE public.notes
+SET section_id = NULL
+WHERE list_context = 'sections';
 
 UPDATE public.notes
 SET
   section_id = NULL,
   notebook_id = NULL
 WHERE list_context = 'notebooks';
-
-ALTER TABLE public.notes
-  ALTER COLUMN section_id DROP NOT NULL;
 
 ALTER TABLE public.notes
   DROP COLUMN IF EXISTS list_context;
