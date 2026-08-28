@@ -5,7 +5,6 @@ import type {
   AppSession,
   HandwritingGlyph,
   Note,
-  NoteListContext,
   Notebook,
   ProfileWithNotes,
   Section,
@@ -149,7 +148,6 @@ export function createNote(
   options?: {
     sectionId?: string;
     notebookId?: string;
-    listContext?: NoteListContext;
   }
 ) {
   return rpc<Note>('create_note', {
@@ -158,7 +156,6 @@ export function createNote(
     p_content: content,
     p_section_id: options?.sectionId ?? null,
     p_notebook_id: options?.notebookId ?? null,
-    p_list_context: options?.listContext ?? null,
   });
 }
 

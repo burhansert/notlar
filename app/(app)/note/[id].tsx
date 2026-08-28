@@ -100,17 +100,12 @@ export default function NoteEditorScreen() {
     setSaving(true);
     try {
       if (isNew) {
-        const listContext =
-          selectedSectionId || routeSectionId
-            ? undefined
-            : routeNotebookId
-              ? 'sections'
-              : 'notebooks';
+        const sectionId = selectedSectionId ?? routeSectionId;
+        const notebookId = sectionId ? undefined : activeNotebookId ?? routeNotebookId;
 
         await createNote(session.token, title.trim(), content.trim(), {
-          sectionId: selectedSectionId ?? routeSectionId,
-          notebookId: activeNotebookId,
-          listContext,
+          sectionId,
+          notebookId,
         });
       } else if (id) {
         await updateNote(session.token, id, title.trim(), content.trim(), selectedSectionId);
@@ -145,9 +140,11 @@ export default function NoteEditorScreen() {
   const locationLabel =
     notebookTitle && sectionTitle
       ? `${notebookTitle} · ${sectionTitle}`
-      : selectedSectionId
-        ? 'Bölüm seçildi'
-        : 'Otomatik yerleştirilecek';
+      : notebookTitle
+        ? notebookTitle
+        : selectedSectionId
+          ? 'Bölüm seçildi'
+          : 'Bağımsız not';
 
   return (
     <NotebookSessionGate

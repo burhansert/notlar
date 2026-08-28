@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-const DISMISS_BLOCK_MS = 350;
+const DISMISS_BLOCK_MS = 120;
 
 import { Button, Input } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';

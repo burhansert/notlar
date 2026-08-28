@@ -56,11 +56,13 @@ create table public.sections (
 create table public.notes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users (id) on delete cascade,
-  section_id uuid not null references public.sections (id) on delete cascade,
+  section_id uuid references public.sections (id) on delete cascade,
+  notebook_id uuid references public.notebooks (id) on delete cascade,
   title text not null default '',
   content text not null default '',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint notes_section_or_notebook_check check (not (section_id is not null and notebook_id is not null))
 );
 
 create table public.handwriting_glyphs (
@@ -79,6 +81,7 @@ create index sections_notebook_id_idx on public.sections (notebook_id);
 create index sections_sort_order_idx on public.sections (notebook_id, sort_order);
 create index notes_user_id_idx on public.notes (user_id);
 create index notes_section_id_idx on public.notes (section_id);
+create index notes_notebook_id_idx on public.notes (notebook_id);
 create index notes_updated_at_idx on public.notes (updated_at desc);
 create index handwriting_glyphs_user_id_idx on public.handwriting_glyphs (user_id);
 create index sessions_user_id_idx on public.sessions (user_id);
@@ -416,8 +419,9 @@ begin
       (
         select count(*)
         from public.notes nt
-        join public.sections s on s.id = nt.section_id
+        left join public.sections s on s.id = nt.section_id
         where s.notebook_id = n.id
+           or nt.notebook_id = n.id
       ) as note_count,
       private.notebook_password_set(n.password) as is_locked
     from public.notebooks n
@@ -649,7 +653,24 @@ begin
 end;
 $$;
 
-create or replace function public.get_note(p_token uuid, p_id uuid)
+create or replace function private.note_notebook_id(p_note public.notes)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_note.section_id is not null then (
+      select s.notebook_id
+      from public.sections s
+      where s.id = p_note.section_id
+    )
+    else p_note.notebook_id
+  end;
+$$;
+
+create or replace function public.list_notebook_page_notes(p_token uuid)
 returns table (
   id uuid,
   user_id uuid,
@@ -681,22 +702,162 @@ begin
       n.content,
       n.created_at,
       n.updated_at,
+      null::uuid as notebook_id,
+      null::text as notebook_title,
+      null::text as section_title
+    from public.notes n
+    where n.user_id = found_user.id
+      and n.section_id is null
+      and n.notebook_id is null
+    order by n.updated_at desc;
+end;
+$$;
+
+create or replace function public.list_sections_page_notes(p_token uuid, p_notebook_id uuid)
+returns table (
+  id uuid,
+  user_id uuid,
+  section_id uuid,
+  title text,
+  content text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  notebook_id uuid,
+  notebook_title text,
+  section_title text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  found_user public.users;
+begin
+  found_user := private.user_from_token(p_token);
+  perform private.notebook_from_token(p_token, p_notebook_id);
+
+  return query
+    select
+      n.id,
+      n.user_id,
+      n.section_id,
+      n.title,
+      n.content,
+      n.created_at,
+      n.updated_at,
       nb.id as notebook_id,
       nb.title as notebook_title,
-      s.title as section_title
+      null::text as section_title
     from public.notes n
-    join public.sections s on s.id = n.section_id
-    join public.notebooks nb on nb.id = s.notebook_id
+    join public.notebooks nb on nb.id = n.notebook_id
+    where n.section_id is null
+      and n.notebook_id = p_notebook_id
+      and (nb.user_id = found_user.id or found_user.role = 'admin')
+    order by n.updated_at desc;
+end;
+$$;
+
+create or replace function public.get_note(p_token uuid, p_id uuid)
+returns table (
+  id uuid,
+  user_id uuid,
+  section_id uuid,
+  title text,
+  content text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  notebook_id uuid,
+  notebook_title text,
+  section_title text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  found_user public.users;
+  found_note public.notes;
+  found_notebook_id uuid;
+begin
+  found_user := private.user_from_token(p_token);
+
+  select *
+    into found_note
+  from public.notes n
+  where n.id = p_id
+    and (n.user_id = found_user.id or found_user.role = 'admin');
+
+  if found_note.id is null then
+    raise exception 'Not bulunamadı.';
+  end if;
+
+  if found_note.section_id is not null then
+    return query
+      select
+        n.id,
+        n.user_id,
+        n.section_id,
+        n.title,
+        n.content,
+        n.created_at,
+        n.updated_at,
+        nb.id as notebook_id,
+        nb.title as notebook_title,
+        s.title as section_title
+      from public.notes n
+      join public.sections s on s.id = n.section_id
+      join public.notebooks nb on nb.id = s.notebook_id
+      where n.id = p_id
+        and (nb.user_id = found_user.id or found_user.role = 'admin');
+    return;
+  end if;
+
+  if found_note.notebook_id is not null then
+    return query
+      select
+        n.id,
+        n.user_id,
+        n.section_id,
+        n.title,
+        n.content,
+        n.created_at,
+        n.updated_at,
+        nb.id as notebook_id,
+        nb.title as notebook_title,
+        null::text as section_title
+      from public.notes n
+      join public.notebooks nb on nb.id = n.notebook_id
+      where n.id = p_id
+        and (nb.user_id = found_user.id or found_user.role = 'admin');
+    return;
+  end if;
+
+  return query
+    select
+      n.id,
+      n.user_id,
+      n.section_id,
+      n.title,
+      n.content,
+      n.created_at,
+      n.updated_at,
+      null::uuid as notebook_id,
+      null::text as notebook_title,
+      null::text as section_title
+    from public.notes n
     where n.id = p_id
-      and (nb.user_id = found_user.id or found_user.role = 'admin');
+      and n.user_id = found_user.id;
 end;
 $$;
 
 create or replace function public.create_note(
   p_token uuid,
-  p_section_id uuid,
   p_title text,
-  p_content text
+  p_content text,
+  p_section_id uuid default null,
+  p_notebook_id uuid default null
 )
 returns public.notes
 language plpgsql
@@ -706,18 +867,40 @@ as $$
 declare
   found_user public.users;
   found_section public.sections;
+  found_notebook public.notebooks;
   new_note public.notes;
 begin
   found_user := private.user_from_token(p_token);
-  found_section := private.section_from_token(p_token, p_section_id);
 
-  insert into public.notes (user_id, section_id, title, content)
-  values (found_user.id, found_section.id, coalesce(p_title, ''), coalesce(p_content, ''))
-  returning * into new_note;
+  if p_section_id is not null and p_notebook_id is not null then
+    raise exception 'Not hem bölüme hem deftere doğrudan bağlanamaz.';
+  end if;
 
-  update public.notebooks
-  set updated_at = now()
-  where id = found_section.notebook_id;
+  if p_section_id is not null then
+    found_section := private.section_from_token(p_token, p_section_id);
+
+    insert into public.notes (user_id, section_id, notebook_id, title, content)
+    values (found_user.id, found_section.id, null, coalesce(p_title, ''), coalesce(p_content, ''))
+    returning * into new_note;
+
+    update public.notebooks
+    set updated_at = now()
+    where id = found_section.notebook_id;
+  elsif p_notebook_id is not null then
+    found_notebook := private.notebook_from_token(p_token, p_notebook_id);
+
+    insert into public.notes (user_id, section_id, notebook_id, title, content)
+    values (found_user.id, null, found_notebook.id, coalesce(p_title, ''), coalesce(p_content, ''))
+    returning * into new_note;
+
+    update public.notebooks
+    set updated_at = now()
+    where id = found_notebook.id;
+  else
+    insert into public.notes (user_id, section_id, notebook_id, title, content)
+    values (found_user.id, null, null, coalesce(p_title, ''), coalesce(p_content, ''))
+    returning * into new_note;
+  end if;
 
   return new_note;
 end;
@@ -737,6 +920,7 @@ set search_path = public
 as $$
 declare
   found_user public.users;
+  existing_note public.notes;
   updated_note public.notes;
   old_notebook_id uuid;
   new_notebook_id uuid;
@@ -744,47 +928,53 @@ declare
 begin
   found_user := private.user_from_token(p_token);
 
-  if p_section_id is not null then
-    target_section := private.section_from_token(p_token, p_section_id);
-  end if;
-
-  select nb.id
-    into old_notebook_id
+  select *
+    into existing_note
   from public.notes n
-  join public.sections s on s.id = n.section_id
-  join public.notebooks nb on nb.id = s.notebook_id
   where n.id = p_id
-    and (nb.user_id = found_user.id or found_user.role = 'admin');
+    and (n.user_id = found_user.id or found_user.role = 'admin');
 
-  if old_notebook_id is null then
+  if existing_note.id is null then
     raise exception 'Not bulunamadı.';
   end if;
 
-  update public.notes n
-  set title = coalesce(p_title, ''),
-      content = coalesce(p_content, ''),
-      section_id = coalesce(p_section_id, n.section_id)
-  from public.sections s
-  join public.notebooks nb on nb.id = s.notebook_id
-  where n.id = p_id
-    and n.section_id = s.id
-    and (nb.user_id = found_user.id or found_user.role = 'admin')
-  returning n.* into updated_note;
+  old_notebook_id := private.note_notebook_id(existing_note);
+
+  if p_section_id is not null then
+    target_section := private.section_from_token(p_token, p_section_id);
+
+    update public.notes n
+    set title = coalesce(p_title, ''),
+        content = coalesce(p_content, ''),
+        section_id = target_section.id,
+        notebook_id = null
+    where n.id = p_id
+      and (n.user_id = found_user.id or found_user.role = 'admin')
+    returning n.* into updated_note;
+
+    new_notebook_id := target_section.notebook_id;
+  else
+    update public.notes n
+    set title = coalesce(p_title, ''),
+        content = coalesce(p_content, '')
+    where n.id = p_id
+      and (n.user_id = found_user.id or found_user.role = 'admin')
+    returning n.* into updated_note;
+
+    new_notebook_id := private.note_notebook_id(updated_note);
+  end if;
 
   if updated_note.id is null then
     raise exception 'Not bulunamadı.';
   end if;
 
-  select s.notebook_id
-    into new_notebook_id
-  from public.sections s
-  where s.id = updated_note.section_id;
+  if old_notebook_id is not null then
+    update public.notebooks
+    set updated_at = now()
+    where id = old_notebook_id;
+  end if;
 
-  update public.notebooks
-  set updated_at = now()
-  where id = old_notebook_id;
-
-  if new_notebook_id <> old_notebook_id then
+  if new_notebook_id is not null and new_notebook_id is distinct from old_notebook_id then
     update public.notebooks
     set updated_at = now()
     where id = new_notebook_id;
@@ -802,26 +992,31 @@ set search_path = public
 as $$
 declare
   found_user public.users;
-  deleted_id uuid;
+  existing_note public.notes;
   found_notebook_id uuid;
 begin
   found_user := private.user_from_token(p_token);
 
-  delete from public.notes n
-  using public.sections s, public.notebooks nb
+  select *
+    into existing_note
+  from public.notes n
   where n.id = p_id
-    and n.section_id = s.id
-    and s.notebook_id = nb.id
-    and (nb.user_id = found_user.id or found_user.role = 'admin')
-  returning n.id, nb.id into deleted_id, found_notebook_id;
+    and (n.user_id = found_user.id or found_user.role = 'admin');
 
-  if deleted_id is null then
+  if existing_note.id is null then
     raise exception 'Not bulunamadı.';
   end if;
 
-  update public.notebooks
-  set updated_at = now()
-  where id = found_notebook_id;
+  found_notebook_id := private.note_notebook_id(existing_note);
+
+  delete from public.notes
+  where id = p_id;
+
+  if found_notebook_id is not null then
+    update public.notebooks
+    set updated_at = now()
+    where id = found_notebook_id;
+  end if;
 end;
 $$;
 
@@ -898,12 +1093,13 @@ begin
       n.created_at,
       n.updated_at,
       u.email as author_email,
-      nb.title as notebook_title,
+      coalesce(nb_direct.title, nb_section.title) as notebook_title,
       s.title as section_title
     from public.notes n
     join public.users u on u.id = n.user_id
-    join public.sections s on s.id = n.section_id
-    join public.notebooks nb on nb.id = s.notebook_id
+    left join public.sections s on s.id = n.section_id
+    left join public.notebooks nb_section on nb_section.id = s.notebook_id
+    left join public.notebooks nb_direct on nb_direct.id = n.notebook_id
     order by n.updated_at desc;
 end;
 $$;

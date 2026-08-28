@@ -249,12 +249,12 @@ export default function SectionsScreen() {
                     onPress={() => router.push(`/note/${item.note.id}` as Href)}
                     onHandwritingPress={() =>
                       router.push(
-                        `/note/handwriting/${item.note.id}?sectionId=${item.note.section_id}&notebookId=${notebookId}&notebookTitle=${encodeURIComponent(notebookTitle)}` as Href
+                        `/note/handwriting/${item.note.id}?notebookId=${notebookId}&notebookTitle=${encodeURIComponent(notebookTitle)}` as Href
                       )
                     }
                     onViewPress={() =>
                       router.push(
-                        `/note/view/${item.note.id}?sectionId=${item.note.section_id}&notebookId=${notebookId}&notebookTitle=${encodeURIComponent(notebookTitle)}` as Href
+                        `/note/view/${item.note.id}?notebookId=${notebookId}&notebookTitle=${encodeURIComponent(notebookTitle)}` as Href
                       )
                     }
                   />
