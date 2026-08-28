@@ -31,7 +31,7 @@ export default function SectionNotesScreen() {
   }>();
   const router = useRouter();
   const { session } = useAuth();
-  const { markProtected, needsUnlock } = useNotebookLock();
+  const { markProtected, needsUnlock, touch } = useNotebookLock();
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -93,7 +93,10 @@ export default function SectionNotesScreen() {
         <Ionicons name="search-outline" size={18} color={colors.muted} />
         <TextInput
           value={query}
-          onChangeText={setQuery}
+          onChangeText={(value) => {
+            setQuery(value);
+            touch(notebookId);
+          }}
           placeholder="Notlarda ara"
           placeholderTextColor={colors.muted}
           style={styles.searchInput}
@@ -134,7 +137,13 @@ export default function SectionNotesScreen() {
           renderItem={({ item }) => (
             <NoteCard
               note={item}
-              onPress={() => router.push(`/note/${item.id}` as Href)}
+              onPress={() =>
+                router.push(
+                  `/note/${item.id}?sectionId=${sectionId}&notebookId=${notebookId}&notebookTitle=${encodeURIComponent(
+                    notebookTitle?.trim() || 'Not defteri'
+                  )}` as Href
+                )
+              }
               onHandwritingPress={() =>
                 router.push(
                   `/note/handwriting/${item.id}?sectionId=${sectionId}&notebookId=${notebookId}&notebookTitle=${encodeURIComponent(

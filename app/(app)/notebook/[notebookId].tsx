@@ -40,7 +40,7 @@ export default function SectionsScreen() {
   const { notebookId, title } = useLocalSearchParams<{ notebookId: string; title?: string }>();
   const router = useRouter();
   const { session } = useAuth();
-  const { markProtected, needsUnlock } = useNotebookLock();
+  const { markProtected, needsUnlock, touch } = useNotebookLock();
   const [sections, setSections] = useState<Section[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState('');
@@ -188,7 +188,10 @@ export default function SectionsScreen() {
         <Ionicons name="search-outline" size={18} color={colors.muted} />
         <TextInput
           value={query}
-          onChangeText={setQuery}
+          onChangeText={(value) => {
+            setQuery(value);
+            touch(notebookId);
+          }}
           placeholder="Bölümler ve notlarda ara"
           placeholderTextColor={colors.muted}
           style={styles.searchInput}
@@ -251,7 +254,11 @@ export default function SectionsScreen() {
                 ) : (
                   <NoteCard
                     note={item.note}
-                    onPress={() => router.push(`/note/${item.note.id}` as Href)}
+                    onPress={() =>
+                      router.push(
+                        `/note/${item.note.id}?notebookId=${notebookId}&notebookTitle=${encodeURIComponent(notebookTitle)}` as Href
+                      )
+                    }
                     onHandwritingPress={() =>
                       router.push(
                         `/note/handwriting/${item.note.id}?notebookId=${notebookId}&notebookTitle=${encodeURIComponent(notebookTitle)}` as Href

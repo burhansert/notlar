@@ -81,14 +81,22 @@ export default function NotePageViewScreen() {
                 }
               />
             ),
-            headerRight: () => (
-              <Pressable
-                onPress={() => router.push(`/note/${note.id}` as Href)}
-                hitSlop={12}
-                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1, marginRight: 4 }]}>
-                <Ionicons name="create-outline" size={22} color={colors.forest} />
-              </Pressable>
-            ),
+            headerRight: () => {
+              const params = new URLSearchParams();
+              if (sectionId) params.set('sectionId', sectionId);
+              const targetNotebookId = notebookId || note.notebook_id;
+              if (targetNotebookId) params.set('notebookId', targetNotebookId);
+              if (notebookTitle) params.set('notebookTitle', notebookTitle);
+              const query = params.toString();
+              return (
+                <Pressable
+                  onPress={() => router.push(`/note/${note.id}${query ? `?${query}` : ''}` as Href)}
+                  hitSlop={12}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1, marginRight: 4 }]}>
+                  <Ionicons name="create-outline" size={22} color={colors.forest} />
+                </Pressable>
+              );
+            },
           }}
         />
         <NotePagePager note={note} />

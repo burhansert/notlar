@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { NotebookPasswordModal } from '@/components/NotebookPasswordModal';
 import { colors, radius, spacing } from '@/constants/theme';
@@ -34,8 +34,27 @@ export function NotebookSessionGate({
     useCallback(() => {
       if (!notebookId) return undefined;
       enterSession(notebookId);
-      return () => leaveSession(notebookId);
-    }, [enterSession, leaveSession, notebookId])
+
+      const resetTimer = () => touch(notebookId);
+      const webListeners =
+        Platform.OS === 'web' && typeof document !== 'undefined'
+          ? (() => {
+              document.addEventListener('keydown', resetTimer, true);
+              document.addEventListener('keyup', resetTimer, true);
+              document.addEventListener('input', resetTimer, true);
+              return () => {
+                document.removeEventListener('keydown', resetTimer, true);
+                document.removeEventListener('keyup', resetTimer, true);
+                document.removeEventListener('input', resetTimer, true);
+              };
+            })()
+          : null;
+
+      return () => {
+        webListeners?.();
+        leaveSession(notebookId);
+      };
+    }, [enterSession, leaveSession, notebookId, touch])
   );
 
   useEffect(() => {

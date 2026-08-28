@@ -282,7 +282,15 @@ export default function NotebooksScreen() {
                 ) : (
                   <NoteCard
                     note={item.note}
-                    onPress={() => router.push(`/note/${item.note.id}` as Href)}
+                    onPress={() =>
+                      router.push(
+                        `/note/${item.note.id}${item.note.section_id ? `?sectionId=${item.note.section_id}` : ''}${
+                          item.note.notebook_id
+                            ? `${item.note.section_id ? '&' : '?'}notebookId=${item.note.notebook_id}`
+                            : ''
+                        }` as Href
+                      )
+                    }
                     onHandwritingPress={() =>
                       router.push(
                         `/note/handwriting/${item.note.id}${item.note.section_id ? `?sectionId=${item.note.section_id}` : ''}${item.note.notebook_id ? `${item.note.section_id ? '&' : '?'}notebookId=${item.note.notebook_id}` : ''}` as Href

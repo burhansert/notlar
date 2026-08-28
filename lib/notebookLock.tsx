@@ -16,7 +16,6 @@ import type { Notebook } from '@/lib/types';
 
 export const NOTEBOOK_IDLE_LOCK_MS = 2 * 60 * 1000;
 const TOUCH_THROTTLE_MS = 10 * 1000;
-const EXIT_LOCK_DELAY_MS = 280;
 
 type NotebookLockContextValue = {
   isProtected: (notebookId?: string | null) => boolean;
@@ -51,7 +50,6 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
   const lastTouchRef = useRef<Record<string, number>>({});
   const tokenRef = useRef(token);
   const sessionCountsRef = useRef<Record<string, number>>({});
-  const leaveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   unlocksRef.current = unlocks;
   tokenRef.current = token;
@@ -111,11 +109,6 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const lock = useCallback(async (notebookId: string) => {
-    const leaveTimer = leaveTimersRef.current[notebookId];
-    if (leaveTimer) {
-      clearTimeout(leaveTimer);
-      delete leaveTimersRef.current[notebookId];
-    }
     setUnlocks((prev) => {
       if (!prev[notebookId]) return prev;
       const next = { ...prev };
@@ -144,30 +137,13 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
 
   const enterSession = useCallback((notebookId?: string | null) => {
     if (!notebookId) return;
-    const leaveTimer = leaveTimersRef.current[notebookId];
-    if (leaveTimer) {
-      clearTimeout(leaveTimer);
-      delete leaveTimersRef.current[notebookId];
-    }
     sessionCountsRef.current[notebookId] = (sessionCountsRef.current[notebookId] ?? 0) + 1;
   }, []);
 
-  const leaveSession = useCallback(
-    (notebookId?: string | null) => {
-      if (!notebookId) return;
-      const next = Math.max(0, (sessionCountsRef.current[notebookId] ?? 1) - 1);
-      sessionCountsRef.current[notebookId] = next;
-      if (next > 0) return;
-      const leaveTimer = leaveTimersRef.current[notebookId];
-      if (leaveTimer) clearTimeout(leaveTimer);
-      leaveTimersRef.current[notebookId] = setTimeout(() => {
-        delete leaveTimersRef.current[notebookId];
-        if ((sessionCountsRef.current[notebookId] ?? 0) > 0) return;
-        void lock(notebookId);
-      }, EXIT_LOCK_DELAY_MS);
-    },
-    [lock]
-  );
+  const leaveSession = useCallback((notebookId?: string | null) => {
+    if (!notebookId) return;
+    sessionCountsRef.current[notebookId] = Math.max(0, (sessionCountsRef.current[notebookId] ?? 1) - 1);
+  }, []);
 
   const unlock = useCallback(
     async (notebookId: string, password: string) => {
@@ -262,15 +238,7 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
     setUnlocks({});
     lastTouchRef.current = {};
     sessionCountsRef.current = {};
-    Object.values(leaveTimersRef.current).forEach(clearTimeout);
-    leaveTimersRef.current = {};
   }, [token]);
-
-  useEffect(() => {
-    return () => {
-      Object.values(leaveTimersRef.current).forEach(clearTimeout);
-    };
-  }, []);
 
   const isProtected = useCallback(
     (notebookId?: string | null) => Boolean(notebookId && protectedIds[notebookId]),
@@ -350,7 +318,10 @@ export function notebookSessionViewProps(touch: (notebookId?: string | null) => 
       ? {
           onMouseMove: () => touch(notebookId),
           onKeyDown: () => touch(notebookId),
+          onKeyUp: () => touch(notebookId),
         }
-      : null),
+      : {
+          onKeyPress: () => touch(notebookId),
+        }),
   };
 }

@@ -16,7 +16,7 @@ import {
 import { NotebookLockCountdown } from '@/components/NotebookLockCountdown';
 import { NotebookSectionPicker } from '@/components/NotebookSectionPicker';
 import { NotebookSessionGate } from '@/components/NotebookSessionGate';
-import { Button } from '@/components/ui';
+import { Button, ConfirmModal } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { createNote, deleteNote, getNote, updateNote } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -39,7 +39,7 @@ export default function NoteEditorScreen() {
   }>();
   const router = useRouter();
   const { session } = useAuth();
-  const { markProtected, needsUnlock } = useNotebookLock();
+  const { markProtected, needsUnlock, touch } = useNotebookLock();
   const isNew = id === 'new';
 
   const [title, setTitle] = useState('');
@@ -51,6 +51,7 @@ export default function NoteEditorScreen() {
   const [activeNotebookId, setActiveNotebookId] = useState(routeNotebookId);
   const [notebookTitle, setNotebookTitle] = useState(routeNotebookTitle?.trim() ?? '');
   const [sectionTitle, setSectionTitle] = useState(routeSectionTitle?.trim() ?? '');
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const locked = needsUnlock(activeNotebookId);
 
@@ -119,23 +120,20 @@ export default function NoteEditorScreen() {
     }
   }
 
-  async function remove() {
+  function remove() {
     if (isNew || !id || !session?.token) return;
-    Alert.alert('Notu sil', 'Bu işlem geri alınamaz.', [
-      { text: 'Vazgeç', style: 'cancel' },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteNote(session.token, id);
-            router.back();
-          } catch (err) {
-            Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
-          }
-        },
-      },
-    ]);
+    setDeleteConfirmOpen(true);
+  }
+
+  async function handleDelete() {
+    if (!id || !session?.token) return;
+    setDeleteConfirmOpen(false);
+    try {
+      await deleteNote(session.token, id);
+      router.back();
+    } catch (err) {
+      Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
+    }
   }
 
   const locationLabel =
@@ -176,7 +174,11 @@ export default function NoteEditorScreen() {
           </Pressable>
           <TextInput
             value={title}
-            onChangeText={setTitle}
+            onChangeText={(value) => {
+              setTitle(value);
+              touch(activeNotebookId);
+            }}
+            onKeyPress={() => touch(activeNotebookId)}
             placeholder="Başlık"
             placeholderTextColor={colors.muted}
             style={styles.title}
@@ -184,7 +186,11 @@ export default function NoteEditorScreen() {
           />
           <TextInput
             value={content}
-            onChangeText={setContent}
+            onChangeText={(value) => {
+              setContent(value);
+              touch(activeNotebookId);
+            }}
+            onKeyPress={() => touch(activeNotebookId)}
             placeholder="Notunuzu buraya yazın…"
             placeholderTextColor={colors.muted}
             style={styles.body}
@@ -215,6 +221,15 @@ export default function NoteEditorScreen() {
           onCancel={() => setPickerOpen(false)}
         />
       ) : null}
+      <ConfirmModal
+        visible={deleteConfirmOpen}
+        title="Notu sil"
+        message="Bu işlem geri alınamaz."
+        confirmLabel="Sil"
+        destructive
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+      />
     </View>
     </NotebookSessionGate>
   );
