@@ -1,6 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { Button, Input } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
@@ -119,9 +128,18 @@ export function NotebookPasswordModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss}>
-      <Pressable style={styles.backdrop} onPress={dismiss}>
-        <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={dismiss}
+      statusBarTranslucent
+      presentationStyle="overFullScreen">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.backdrop}>
+        <Pressable style={styles.backdropPressable} onPress={dismiss} accessibilityRole="button" />
+        <View style={styles.card}>
           <View style={styles.iconWrap}>
             <Ionicons
               name={mode === 'remove' ? 'lock-open-outline' : 'lock-closed-outline'}
@@ -163,6 +181,7 @@ export function NotebookPasswordModal({
               }}
               placeholder="En az 6 karakter"
               secureTextEntry
+              autoFocus={mode === 'unlock'}
               {...passwordFieldProps}
             />
           )}
@@ -198,8 +217,8 @@ export function NotebookPasswordModal({
               )}
             </View>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -207,9 +226,12 @@ export function NotebookPasswordModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: colors.overlay,
     justifyContent: 'center',
     padding: spacing.lg,
+  },
+  backdropPressable: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.overlay,
   },
   card: {
     backgroundColor: colors.card,
@@ -218,6 +240,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
     gap: spacing.md,
+    zIndex: 1,
+    elevation: 4,
   },
   iconWrap: {
     width: 48,

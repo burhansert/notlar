@@ -93,7 +93,7 @@ export function NotebookSessionGate({
   return (
     <View style={styles.wrap}>
       {children}
-      {locked ? (
+      {locked && !showModal ? (
         <View style={styles.cover}>
           <View style={styles.coverIcon}>
             <Ionicons name="lock-closed-outline" size={30} color={colors.forest} />
