@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { HeaderBackButton } from '@/components/HeaderBackButton';
+import { NotebookLockCountdown } from '@/components/NotebookLockCountdown';
 import { NotebookSessionGate } from '@/components/NotebookSessionGate';
 import { NotePagePager } from '@/components/NotePagePager';
 import { colors, spacing } from '@/constants/theme';
@@ -49,18 +50,30 @@ export default function NotePageViewScreen() {
     load();
   }, [load]);
 
+  const activeNotebookId = notebookId || note?.notebook_id;
+
   let content;
   if (loading) {
     content = (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: 'Sayfa görünümü' }} />
+        <Stack.Screen
+          options={{
+            title: 'Sayfa görünümü',
+            headerRight: () => <NotebookLockCountdown notebookId={activeNotebookId} />,
+          }}
+        />
         <ActivityIndicator color={colors.forest} size="large" />
       </View>
     );
   } else if (!note) {
     content = (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: 'Sayfa görünümü' }} />
+        <Stack.Screen
+          options={{
+            title: 'Sayfa görünümü',
+            headerRight: () => <NotebookLockCountdown notebookId={activeNotebookId} />,
+          }}
+        />
         <Text style={styles.empty}>Not bulunamadı.</Text>
       </View>
     );
@@ -84,17 +97,19 @@ export default function NotePageViewScreen() {
             headerRight: () => {
               const params = new URLSearchParams();
               if (sectionId) params.set('sectionId', sectionId);
-              const targetNotebookId = notebookId || note.notebook_id;
-              if (targetNotebookId) params.set('notebookId', targetNotebookId);
+              if (activeNotebookId) params.set('notebookId', activeNotebookId);
               if (notebookTitle) params.set('notebookTitle', notebookTitle);
               const query = params.toString();
               return (
-                <Pressable
-                  onPress={() => router.push(`/note/${note.id}${query ? `?${query}` : ''}` as Href)}
-                  hitSlop={12}
-                  style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1, marginRight: 4 }]}>
-                  <Ionicons name="create-outline" size={22} color={colors.forest} />
-                </Pressable>
+                <View style={styles.headerRight}>
+                  <NotebookLockCountdown notebookId={activeNotebookId} />
+                  <Pressable
+                    onPress={() => router.push(`/note/${note.id}${query ? `?${query}` : ''}` as Href)}
+                    hitSlop={12}
+                    style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
+                    <Ionicons name="create-outline" size={22} color={colors.forest} />
+                  </Pressable>
+                </View>
               );
             },
           }}
@@ -129,5 +144,11 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 16,
     fontWeight: '600',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginRight: 4,
   },
 });

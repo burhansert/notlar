@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { HandwritingNotePager } from '@/components/HandwritingNotePager';
 import { HeaderBackButton } from '@/components/HeaderBackButton';
+import { NotebookLockCountdown } from '@/components/NotebookLockCountdown';
 import { NotebookSessionGate } from '@/components/NotebookSessionGate';
 import { colors, spacing } from '@/constants/theme';
 import { getNote, listHandwritingGlyphs } from '@/lib/api';
@@ -70,18 +71,30 @@ export default function NoteHandwritingViewScreen() {
         )}` as Href)
       : ('/(app)/(tabs)' as Href);
 
+  const activeNotebookId = notebookId || note?.notebook_id;
+
   let content;
   if (loading) {
     content = (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: 'El yazısı' }} />
+        <Stack.Screen
+          options={{
+            title: 'El yazısı',
+            headerRight: () => <NotebookLockCountdown notebookId={activeNotebookId} />,
+          }}
+        />
         <ActivityIndicator color={colors.forest} size="large" />
       </View>
     );
   } else if (!note) {
     content = (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: 'El yazısı' }} />
+        <Stack.Screen
+          options={{
+            title: 'El yazısı',
+            headerRight: () => <NotebookLockCountdown notebookId={activeNotebookId} />,
+          }}
+        />
         <Text style={styles.empty}>Not bulunamadı.</Text>
       </View>
     );
@@ -92,6 +105,7 @@ export default function NoteHandwritingViewScreen() {
           options={{
             title: 'El yazısı',
             headerLeft: () => <HeaderBackButton fallbackHref={backHref} />,
+            headerRight: () => <NotebookLockCountdown notebookId={activeNotebookId} />,
           }}
         />
         <HandwritingNotePager note={note} glyphMap={glyphMap} />

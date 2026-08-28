@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -81,9 +81,11 @@ export default function SectionsScreen() {
 
   const locked = needsUnlock(notebookId);
 
-  useEffect(() => {
-    if (!locked) load();
-  }, [load, locked]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!locked) load();
+    }, [load, locked])
+  );
 
   const listItems = useMemo(() => {
     const q = query.trim().toLowerCase();
