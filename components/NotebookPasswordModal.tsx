@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+
+const DISMISS_BLOCK_MS = 350;
 
 import { Button, Input } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
@@ -29,9 +31,11 @@ export function NotebookPasswordModal({
   const [confirm, setConfirm] = useState('');
   const [current, setCurrent] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+  const dismissingRef = useRef(false);
 
   useEffect(() => {
     if (!visible) return;
+    dismissingRef.current = false;
     setPassword('');
     setConfirm('');
     setCurrent('');
@@ -51,8 +55,13 @@ export function NotebookPasswordModal({
     mode === 'unlock' ? 'Aç' : mode === 'remove' ? 'Kaldır' : 'Kaydet';
 
   function dismiss() {
-    // Web'de modal kapanırken aynı tıklama alttaki öğeye geçmesin diye bir sonraki kareye ertelenir.
-    setTimeout(onCancel, 0);
+    if (dismissingRef.current) return;
+    dismissingRef.current = true;
+    // Modal açık kalsın; web'de kapanırken tıklama alttaki karta geçmesin.
+    setTimeout(() => {
+      dismissingRef.current = false;
+      onCancel();
+    }, DISMISS_BLOCK_MS);
   }
 
   function submit() {

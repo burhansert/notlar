@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -51,7 +51,8 @@ export default function NotebooksScreen() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const notebookLock = useNotebookLock();
-  const { syncNotebooks, needsUnlock, unlock, setPassword, removePassword } = notebookLock;
+  const { syncNotebooks, isUnlocked, unlock, setPassword, removePassword } = notebookLock;
+  const suppressNotebookOpenUntilRef = useRef(0);
 
   const load = useCallback(async () => {
     if (!session?.token) {
@@ -141,13 +142,21 @@ export default function NotebooksScreen() {
   }
 
   function openNotebook(notebook: Notebook) {
-    if (notebook.is_locked && needsUnlock(notebook.id)) {
+    if (Date.now() < suppressNotebookOpenUntilRef.current) return;
+
+    if (notebook.is_locked && !isUnlocked(notebook.id)) {
       setPasswordError(null);
       setPasswordMode('unlock');
       setPasswordTarget(notebook);
       return;
     }
     router.push(`/notebook/${notebook.id}?title=${encodeURIComponent(notebook.title)}` as Href);
+  }
+
+  function handlePasswordCancel() {
+    suppressNotebookOpenUntilRef.current = Date.now() + 400;
+    setPasswordTarget(null);
+    setPasswordError(null);
   }
 
   function openMenu(notebook: Notebook) {
@@ -220,6 +229,7 @@ export default function NotebooksScreen() {
         <FlatList
           data={listItems}
           keyExtractor={(item) => item.id}
+          pointerEvents={passwordTarget ? 'none' : 'auto'}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl
@@ -379,10 +389,7 @@ export default function NotebooksScreen() {
         title={passwordTarget?.title}
         loading={passwordLoading}
         error={passwordError}
-        onCancel={() => {
-          setPasswordTarget(null);
-          setPasswordError(null);
-        }}
+        onCancel={handlePasswordCancel}
         onConfirm={handlePasswordConfirm}
       />
     </View>
