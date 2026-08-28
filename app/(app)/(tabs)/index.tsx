@@ -217,10 +217,17 @@ export default function NotebooksScreen() {
         <Ionicons name="search-outline" size={18} color={colors.muted} />
         <TextInput
           value={query}
-          onChangeText={setQuery}
+          onChangeText={(value) => {
+            if (passwordTarget) return;
+            setQuery(value);
+          }}
+          editable={!passwordTarget}
           placeholder="Not defterleri ve notlarda ara"
           placeholderTextColor={colors.muted}
           style={styles.searchInput}
+          autoComplete="off"
+          textContentType="none"
+          importantForAutofill="no"
         />
       </View>
       {loading ? (

@@ -95,6 +95,9 @@ export default function SectionNotesScreen() {
           placeholder="Notlarda ara"
           placeholderTextColor={colors.muted}
           style={styles.searchInput}
+          autoComplete="off"
+          textContentType="none"
+          importantForAutofill="no"
         />
       </View>
       {loading ? (

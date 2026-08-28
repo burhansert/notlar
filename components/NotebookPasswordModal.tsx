@@ -2,11 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-const DISMISS_BLOCK_MS = 120;
-
 import { Button, Input } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { validatePassword } from '@/lib/credentials';
+
+const DISMISS_BLOCK_MS = 120;
+
+// Defter şifreleri tarayıcı/işletim sistemi şifre yöneticisine bağlanmamalı.
+// Aksi halde Chrome eşleşen bir "kullanıcı adı" alanı arayıp sayfadaki arama
+// kutusunu e-posta ile doldurur ve arkadaki liste filtrelenip boşalır.
+const noAutofillProps = {
+  autoComplete: 'off',
+  textContentType: 'none',
+  importantForAutofill: 'no',
+} as const;
 
 export type NotebookPasswordMode = 'unlock' | 'set' | 'change' | 'remove';
 
@@ -137,7 +146,7 @@ export function NotebookPasswordModal({
               }}
               placeholder="Mevcut şifre"
               secureTextEntry
-              autoComplete="password"
+              {...noAutofillProps}
             />
           ) : null}
           {mode === 'remove' ? null : (
@@ -150,7 +159,7 @@ export function NotebookPasswordModal({
               }}
               placeholder="En az 6 karakter"
               secureTextEntry
-              autoComplete={mode === 'unlock' ? 'password' : 'new-password'}
+              {...noAutofillProps}
             />
           )}
           {mode === 'set' || mode === 'change' ? (
@@ -163,7 +172,7 @@ export function NotebookPasswordModal({
               }}
               placeholder="Şifreyi tekrar yazın"
               secureTextEntry
-              autoComplete="new-password"
+              {...noAutofillProps}
             />
           ) : null}
           {localError || error ? <Text style={styles.error}>{localError || error}</Text> : null}

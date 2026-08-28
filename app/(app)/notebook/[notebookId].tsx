@@ -190,6 +190,9 @@ export default function SectionsScreen() {
           placeholder="Bölümler ve notlarda ara"
           placeholderTextColor={colors.muted}
           style={styles.searchInput}
+          autoComplete="off"
+          textContentType="none"
+          importantForAutofill="no"
         />
       </View>
       {loading ? (
