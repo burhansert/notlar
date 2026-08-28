@@ -33,6 +33,8 @@ export type Section = {
   note_count?: number;
 };
 
+export type NoteListContext = 'notebooks' | 'sections';
+
 export type Note = {
   id: string;
   user_id: string;
@@ -42,6 +44,7 @@ export type Note = {
   created_at: string;
   updated_at: string;
   notebook_id?: string | null;
+  list_context?: NoteListContext | null;
   author_email?: string | null;
   notebook_title?: string | null;
   section_title?: string | null;

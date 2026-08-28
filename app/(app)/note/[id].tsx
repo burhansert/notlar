@@ -85,9 +85,17 @@ export default function NoteEditorScreen() {
     setSaving(true);
     try {
       if (isNew) {
+        const listContext =
+          selectedSectionId || routeSectionId
+            ? undefined
+            : routeNotebookId
+              ? 'sections'
+              : 'notebooks';
+
         await createNote(session.token, title.trim(), content.trim(), {
-          sectionId: selectedSectionId,
+          sectionId: selectedSectionId ?? routeSectionId,
           notebookId: routeNotebookId,
+          listContext,
         });
       } else if (id) {
         await updateNote(session.token, id, title.trim(), content.trim(), selectedSectionId);

@@ -8,24 +8,37 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
+  Text,
   TextInput,
   View,
 } from 'react-native';
 
 import { HeaderBackButton } from '@/components/HeaderBackButton';
+import { NoteCard } from '@/components/NoteCard';
 import { SectionCard } from '@/components/SectionCard';
 import { NotebookSectionPicker } from '@/components/NotebookSectionPicker';
 import { ActionMenuModal, ConfirmModal, EmptyState, PromptModal } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
-import { createSection, deleteSection, listSections, updateSection } from '@/lib/api';
+import {
+  createSection,
+  deleteSection,
+  listSections,
+  listSectionsPageNotes,
+  updateSection,
+} from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import type { Notebook, Section } from '@/lib/types';
+import type { Notebook, Note, Section } from '@/lib/types';
+
+type ListItem =
+  | { kind: 'section'; id: string; section: Section }
+  | { kind: 'note'; id: string; note: Note };
 
 export default function SectionsScreen() {
   const { notebookId, title } = useLocalSearchParams<{ notebookId: string; title?: string }>();
   const router = useRouter();
   const { session } = useAuth();
   const [sections, setSections] = useState<Section[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,15 +54,21 @@ export default function SectionsScreen() {
   const load = useCallback(async () => {
     if (!session?.token || !notebookId) {
       setSections([]);
+      setNotes([]);
       setLoading(false);
       setRefreshing(false);
       return;
     }
     try {
-      const data = await listSections(session.token, notebookId);
-      setSections(data ?? []);
+      const [sectionData, noteData] = await Promise.all([
+        listSections(session.token, notebookId),
+        listSectionsPageNotes(session.token, notebookId),
+      ]);
+      setSections(sectionData ?? []);
+      setNotes(noteData ?? []);
     } catch {
       setSections([]);
+      setNotes([]);
     }
     setLoading(false);
     setRefreshing(false);
@@ -61,11 +80,39 @@ export default function SectionsScreen() {
     }, [load])
   );
 
-  const filtered = useMemo(() => {
+  const listItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return sections;
-    return sections.filter((section) => section.title.toLowerCase().includes(q));
-  }, [query, sections]);
+    const items: ListItem[] = [];
+
+    for (const section of sections) {
+      if (q && !section.title.toLowerCase().includes(q)) continue;
+      items.push({ kind: 'section', id: `section-${section.id}`, section });
+    }
+
+    for (const note of notes) {
+      if (
+        q &&
+        !note.title.toLowerCase().includes(q) &&
+        !note.content.toLowerCase().includes(q)
+      ) {
+        continue;
+      }
+      items.push({ kind: 'note', id: `note-${note.id}`, note });
+    }
+
+    return items;
+  }, [notes, query, sections]);
+
+  const sectionHeaderIndex = useMemo(
+    () => listItems.findIndex((entry) => entry.kind === 'section'),
+    [listItems]
+  );
+  const noteHeaderIndex = useMemo(
+    () => listItems.findIndex((entry) => entry.kind === 'note'),
+    [listItems]
+  );
+  const hasSections = listItems.some((entry) => entry.kind === 'section');
+  const hasNotes = listItems.some((entry) => entry.kind === 'note');
 
   async function handleCreate(sectionTitle: string) {
     if (!session?.token || !notebookId) return;
@@ -135,7 +182,7 @@ export default function SectionsScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Bölümlerde ara"
+          placeholder="Bölümler ve notlarda ara"
           placeholderTextColor={colors.muted}
           style={styles.searchInput}
         />
@@ -144,7 +191,7 @@ export default function SectionsScreen() {
         <ActivityIndicator color={colors.forest} style={styles.loader} />
       ) : (
         <FlatList
-          data={filtered}
+          data={listItems}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           refreshControl={
@@ -161,7 +208,7 @@ export default function SectionsScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="layers-outline"
-              title={query ? 'Sonuç yok' : 'Henüz bölüm yok'}
+              title={query ? 'Sonuç yok' : 'Henüz bölüm veya not yok'}
               subtitle={
                 query
                   ? 'Farklı bir arama deneyin.'
@@ -169,17 +216,47 @@ export default function SectionsScreen() {
               }
             />
           }
-          renderItem={({ item }) => (
-            <SectionCard
-              section={item}
-              onPress={() =>
-                router.push(
-                  `/notebook/${notebookId}/${item.id}?notebookTitle=${encodeURIComponent(notebookTitle)}&sectionTitle=${encodeURIComponent(item.title)}` as Href
-                )
-              }
-              onMenuPress={() => openMenu(item)}
-            />
-          )}
+          renderItem={({ item, index }) => {
+            const showSectionHeader = item.kind === 'section' && index === sectionHeaderIndex;
+            const showNoteHeader = item.kind === 'note' && index === noteHeaderIndex;
+
+            return (
+              <View style={styles.itemGroup}>
+                {showSectionHeader && hasSections ? (
+                  <Text style={styles.sectionLabel}>Bölümler</Text>
+                ) : null}
+                {showNoteHeader && hasNotes ? (
+                  <Text style={styles.sectionLabel}>Notlar</Text>
+                ) : null}
+                {item.kind === 'section' ? (
+                  <SectionCard
+                    section={item.section}
+                    onPress={() =>
+                      router.push(
+                        `/notebook/${notebookId}/${item.section.id}?notebookTitle=${encodeURIComponent(notebookTitle)}&sectionTitle=${encodeURIComponent(item.section.title)}` as Href
+                      )
+                    }
+                    onMenuPress={() => openMenu(item.section)}
+                  />
+                ) : (
+                  <NoteCard
+                    note={item.note}
+                    onPress={() => router.push(`/note/${item.note.id}` as Href)}
+                    onHandwritingPress={() =>
+                      router.push(
+                        `/note/handwriting/${item.note.id}?sectionId=${item.note.section_id}&notebookId=${notebookId}&notebookTitle=${encodeURIComponent(notebookTitle)}` as Href
+                      )
+                    }
+                    onViewPress={() =>
+                      router.push(
+                        `/note/view/${item.note.id}?sectionId=${item.note.section_id}&notebookId=${notebookId}&notebookTitle=${encodeURIComponent(notebookTitle)}` as Href
+                      )
+                    }
+                  />
+                )}
+              </View>
+            );
+          }}
         />
       )}
       <Pressable
@@ -299,6 +376,17 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: spacing.lg,
     paddingBottom: 120,
+  },
+  itemGroup: {
+    gap: 8,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 4,
   },
   loader: {
     marginTop: 40,
