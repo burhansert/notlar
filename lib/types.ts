@@ -21,6 +21,7 @@ export type Notebook = {
   updated_at: string;
   section_count?: number;
   note_count?: number;
+  is_locked?: boolean;
 };
 
 export type Section = {

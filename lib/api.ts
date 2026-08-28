@@ -37,8 +37,12 @@ export function listNotebooks(token: string) {
   return rpc<Notebook[] | null>('list_notebooks', { p_token: token }).then((rows) => rows ?? []);
 }
 
-export function createNotebook(token: string, title: string) {
-  return rpc<Notebook>('create_notebook', { p_token: token, p_title: title });
+export function createNotebook(token: string, title: string, password?: string) {
+  return rpc<Notebook>('create_notebook', {
+    p_token: token,
+    p_title: title,
+    p_password: password ?? null,
+  });
 }
 
 export function updateNotebook(token: string, id: string, title: string) {
@@ -47,6 +51,32 @@ export function updateNotebook(token: string, id: string, title: string) {
 
 export function deleteNotebook(token: string, id: string) {
   return rpc<null>('delete_notebook', { p_token: token, p_id: id });
+}
+
+export function unlockNotebook(token: string, id: string, password: string) {
+  return rpc<null>('unlock_notebook', { p_token: token, p_id: id, p_password: password });
+}
+
+export function lockNotebook(token: string, id: string) {
+  return rpc<null>('lock_notebook', { p_token: token, p_id: id });
+}
+
+export function touchNotebook(token: string, id: string) {
+  return rpc<null>('touch_notebook', { p_token: token, p_id: id });
+}
+
+export function setNotebookPassword(
+  token: string,
+  id: string,
+  newPassword: string,
+  currentPassword?: string
+) {
+  return rpc<null>('set_notebook_password', {
+    p_token: token,
+    p_id: id,
+    p_new_password: newPassword,
+    p_current_password: currentPassword ?? null,
+  });
 }
 
 export function listSections(token: string, notebookId: string) {

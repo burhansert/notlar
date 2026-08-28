@@ -1,4 +1,5 @@
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { NotebookLockProvider } from '@/lib/notebookLock';
 import { colors } from '@/constants/theme';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -16,9 +17,11 @@ export const unstable_settings = {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="dark" />
-      <SplashController />
-      <RootNavigator />
+      <NotebookLockProvider>
+        <StatusBar style="dark" />
+        <SplashController />
+        <RootNavigator />
+      </NotebookLockProvider>
     </AuthProvider>
   );
 }

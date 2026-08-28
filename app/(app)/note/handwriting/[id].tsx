@@ -1,13 +1,15 @@
-import { Stack, useLocalSearchParams, type Href } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { HandwritingNotePager } from '@/components/HandwritingNotePager';
 import { HeaderBackButton } from '@/components/HeaderBackButton';
+import { NotebookSessionGate } from '@/components/NotebookSessionGate';
 import { colors, spacing } from '@/constants/theme';
 import { getNote, listHandwritingGlyphs } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { buildGlyphMap } from '@/lib/handwriting';
+import { isNotebookLockedError, useNotebookLock } from '@/lib/notebookLock';
 import type { Note } from '@/lib/types';
 
 export default function NoteHandwritingViewScreen() {
@@ -18,13 +20,15 @@ export default function NoteHandwritingViewScreen() {
     notebookTitle?: string;
   }>();
   const { session } = useAuth();
+  const router = useRouter();
+  const { markProtected, needsUnlock } = useNotebookLock();
+  const locked = needsUnlock(notebookId);
 
   const [note, setNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!session?.token || !id) {
-      setNote(null);
+    if (!session?.token || !id || locked) {
       setLoading(false);
       return;
     }
@@ -32,12 +36,13 @@ export default function NoteHandwritingViewScreen() {
     try {
       const data = await getNote(session.token, id);
       setNote(data);
-    } catch {
-      setNote(null);
+    } catch (err) {
+      if (isNotebookLockedError(err) && notebookId) markProtected(notebookId, true);
+      else setNote(null);
     }
 
     setLoading(false);
-  }, [id, session?.token]);
+  }, [id, locked, markProtected, notebookId, session?.token]);
 
   useEffect(() => {
     load();
@@ -65,34 +70,42 @@ export default function NoteHandwritingViewScreen() {
         )}` as Href)
       : ('/(app)/(tabs)' as Href);
 
+  let content;
   if (loading) {
-    return (
+    content = (
       <View style={styles.center}>
         <Stack.Screen options={{ title: 'El yazısı' }} />
         <ActivityIndicator color={colors.forest} size="large" />
       </View>
     );
-  }
-
-  if (!note) {
-    return (
+  } else if (!note) {
+    content = (
       <View style={styles.center}>
         <Stack.Screen options={{ title: 'El yazısı' }} />
         <Text style={styles.empty}>Not bulunamadı.</Text>
       </View>
     );
+  } else {
+    content = (
+      <View style={styles.container}>
+        <Stack.Screen
+          options={{
+            title: 'El yazısı',
+            headerLeft: () => <HeaderBackButton fallbackHref={backHref} />,
+          }}
+        />
+        <HandwritingNotePager note={note} glyphMap={glyphMap} />
+      </View>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: 'El yazısı',
-          headerLeft: () => <HeaderBackButton fallbackHref={backHref} />,
-        }}
-      />
-      <HandwritingNotePager note={note} glyphMap={glyphMap} />
-    </View>
+    <NotebookSessionGate
+      notebookId={notebookId}
+      title={notebookTitle?.trim() || 'Not defteri'}
+      onCancelUnlock={() => router.back()}>
+      {content}
+    </NotebookSessionGate>
   );
 }
 

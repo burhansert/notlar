@@ -12,7 +12,9 @@ import {
 
 import { colors, radius, spacing } from '@/constants/theme';
 import { listNotebooks, listSections } from '@/lib/api';
+import { isNotebookLockedError, useNotebookLock } from '@/lib/notebookLock';
 import type { Notebook, Section } from '@/lib/types';
+import { NotebookPasswordModal } from '@/components/NotebookPasswordModal';
 
 type PickerMode = 'notebook' | 'section';
 
@@ -42,6 +44,10 @@ export function NotebookSectionPicker({
   const [activeNotebook, setActiveNotebook] = useState<Notebook | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingSections, setLoadingSections] = useState(false);
+  const [unlockTarget, setUnlockTarget] = useState<Notebook | null>(null);
+  const [unlockLoading, setUnlockLoading] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const { syncNotebooks, needsUnlock, unlock, markProtected } = useNotebookLock();
 
   useEffect(() => {
     if (!visible) {
@@ -58,10 +64,11 @@ export function NotebookSectionPicker({
             ? data.filter((notebook) => notebook.id !== excludeNotebookId)
             : data;
         setNotebooks(filtered);
+        syncNotebooks(data);
       })
       .catch(() => setNotebooks([]))
       .finally(() => setLoading(false));
-  }, [visible, token, excludeNotebookId]);
+  }, [visible, token, excludeNotebookId, syncNotebooks]);
 
   useEffect(() => {
     if (!visible || mode !== 'section' || !activeNotebook) {
@@ -72,16 +79,44 @@ export function NotebookSectionPicker({
     setLoadingSections(true);
     listSections(token, activeNotebook.id)
       .then((data) => setSections(data))
-      .catch(() => setSections([]))
+      .catch((err) => {
+        if (isNotebookLockedError(err)) markProtected(activeNotebook.id, true);
+        setSections([]);
+      })
       .finally(() => setLoadingSections(false));
-  }, [visible, mode, activeNotebook, token]);
+  }, [visible, mode, activeNotebook, token, markProtected]);
 
   function handleNotebookPress(notebook: Notebook) {
+    if (notebook.is_locked && needsUnlock(notebook.id)) {
+      setUnlockError(null);
+      setUnlockTarget(notebook);
+      return;
+    }
     if (mode === 'notebook') {
       onSelectNotebook(notebook);
       return;
     }
     setActiveNotebook(notebook);
+  }
+
+  async function handleUnlock(password: string) {
+    if (!unlockTarget) return;
+    setUnlockLoading(true);
+    setUnlockError(null);
+    try {
+      await unlock(unlockTarget.id, password);
+      const target = unlockTarget;
+      setUnlockTarget(null);
+      if (mode === 'notebook') {
+        onSelectNotebook(target);
+      } else {
+        setActiveNotebook(target);
+      }
+    } catch (err) {
+      setUnlockError(err instanceof Error ? err.message : 'Açılamadı.');
+    } finally {
+      setUnlockLoading(false);
+    }
   }
 
   function handleSectionPress(section: Section) {
@@ -161,7 +196,11 @@ export function NotebookSectionPicker({
                       selected ? styles.rowSelected : null,
                       { opacity: pressed ? 0.85 : 1 },
                     ]}>
-                    <Ionicons name="book-outline" size={18} color={colors.forest} />
+                    <Ionicons
+                      name={item.is_locked ? 'lock-closed-outline' : 'book-outline'}
+                      size={18}
+                      color={colors.forest}
+                    />
                     <Text style={styles.rowLabel}>{item.title}</Text>
                     {mode === 'section' ? (
                       <Ionicons name="chevron-forward" size={18} color={colors.muted} />
@@ -175,6 +214,15 @@ export function NotebookSectionPicker({
           )}
         </Pressable>
       </Pressable>
+      <NotebookPasswordModal
+        visible={Boolean(unlockTarget)}
+        mode="unlock"
+        title={unlockTarget?.title}
+        loading={unlockLoading}
+        error={unlockError}
+        onCancel={() => setUnlockTarget(null)}
+        onConfirm={handleUnlock}
+      />
     </Modal>
   );
 }

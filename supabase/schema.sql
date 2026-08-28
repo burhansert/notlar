@@ -39,6 +39,7 @@ create table public.notebooks (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users (id) on delete cascade,
   title text not null default '',
+  password text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -81,6 +82,13 @@ create index notes_section_id_idx on public.notes (section_id);
 create index notes_updated_at_idx on public.notes (updated_at desc);
 create index handwriting_glyphs_user_id_idx on public.handwriting_glyphs (user_id);
 create index sessions_user_id_idx on public.sessions (user_id);
+
+create table if not exists private.notebook_unlocks (
+  session_token uuid not null references public.sessions (token) on delete cascade,
+  notebook_id uuid not null references public.notebooks (id) on delete cascade,
+  last_seen_at timestamptz not null default now(),
+  primary key (session_token, notebook_id)
+);
 
 create or replace function private.set_updated_at()
 returns trigger
@@ -170,6 +178,14 @@ begin
 
   return found_notebook;
 end;
+$$;
+
+create or replace function private.notebook_password_set(p_password text)
+returns boolean
+language sql
+immutable
+as $$
+  select p_password is not null and char_length(p_password) > 0;
 $$;
 
 create or replace function private.section_from_token(p_token uuid, p_section_id uuid)
@@ -376,7 +392,8 @@ returns table (
   created_at timestamptz,
   updated_at timestamptz,
   section_count bigint,
-  note_count bigint
+  note_count bigint,
+  is_locked boolean
 )
 language plpgsql
 stable
@@ -401,7 +418,8 @@ begin
         from public.notes nt
         join public.sections s on s.id = nt.section_id
         where s.notebook_id = n.id
-      ) as note_count
+      ) as note_count,
+      private.notebook_password_set(n.password) as is_locked
     from public.notebooks n
     where n.user_id = found_user.id
     order by n.updated_at desc;
@@ -1108,7 +1126,7 @@ grant execute on function public.login_user(text, text) to anon, authenticated;
 grant execute on function public.restore_session(uuid) to anon, authenticated;
 grant execute on function public.logout_user(uuid) to anon, authenticated;
 grant execute on function public.list_notebooks(uuid) to anon, authenticated;
-grant execute on function public.create_notebook(uuid, text) to anon, authenticated;
+grant execute on function public.create_notebook(uuid, text, text) to anon, authenticated;
 grant execute on function public.update_notebook(uuid, uuid, text) to anon, authenticated;
 grant execute on function public.delete_notebook(uuid, uuid) to anon, authenticated;
 grant execute on function public.list_sections(uuid, uuid) to anon, authenticated;
@@ -1130,5 +1148,9 @@ grant execute on function public.upsert_handwriting_glyph(uuid, text, jsonb) to 
 grant execute on function public.delete_handwriting_glyph(uuid, text) to anon, authenticated;
 grant execute on function public.get_handwriting_glyph_size(uuid) to anon, authenticated;
 grant execute on function public.set_handwriting_glyph_size(uuid, integer) to anon, authenticated;
+grant execute on function public.unlock_notebook(uuid, uuid, text) to anon, authenticated;
+grant execute on function public.lock_notebook(uuid, uuid) to anon, authenticated;
+grant execute on function public.touch_notebook(uuid, uuid) to anon, authenticated;
+grant execute on function public.set_notebook_password(uuid, uuid, text, text) to anon, authenticated;
 
 notify pgrst, 'reload schema';

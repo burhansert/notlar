@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,10 +13,12 @@ import {
 
 import { HeaderBackButton } from '@/components/HeaderBackButton';
 import { NoteCard } from '@/components/NoteCard';
+import { NotebookSessionGate } from '@/components/NotebookSessionGate';
 import { EmptyState } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
 import { listNotes } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { isNotebookLockedError, useNotebookLock } from '@/lib/notebookLock';
 import type { Note } from '@/lib/types';
 
 export default function SectionNotesScreen() {
@@ -28,6 +30,7 @@ export default function SectionNotesScreen() {
   }>();
   const router = useRouter();
   const { session } = useAuth();
+  const { markProtected, needsUnlock } = useNotebookLock();
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -45,18 +48,19 @@ export default function SectionNotesScreen() {
     try {
       const data = await listNotes(session.token, sectionId);
       setNotes(data ?? []);
-    } catch {
+    } catch (err) {
+      if (isNotebookLockedError(err) && notebookId) markProtected(notebookId, true);
       setNotes([]);
     }
     setLoading(false);
     setRefreshing(false);
-  }, [sectionId, session?.token]);
+  }, [markProtected, notebookId, sectionId, session?.token]);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  const locked = needsUnlock(notebookId);
+
+  useEffect(() => {
+    if (!locked) load();
+  }, [load, locked]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -67,6 +71,10 @@ export default function SectionNotesScreen() {
   }, [notes, query]);
 
   return (
+    <NotebookSessionGate
+      notebookId={notebookId}
+      title={notebookTitle?.trim() || 'Not defteri'}
+      onCancelUnlock={() => router.back()}>
     <View style={styles.container}>
       <Stack.Screen
         options={{
@@ -151,6 +159,7 @@ export default function SectionNotesScreen() {
         <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>
     </View>
+    </NotebookSessionGate>
   );
 }
 

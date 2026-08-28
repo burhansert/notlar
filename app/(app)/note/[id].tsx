@@ -14,10 +14,12 @@ import {
 } from 'react-native';
 
 import { NotebookSectionPicker } from '@/components/NotebookSectionPicker';
+import { NotebookSessionGate } from '@/components/NotebookSessionGate';
 import { Button } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
 import { createNote, deleteNote, getNote, updateNote } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { isNotebookLockedError, useNotebookLock } from '@/lib/notebookLock';
 import type { Notebook, Section } from '@/lib/types';
 
 export default function NoteEditorScreen() {
@@ -36,6 +38,7 @@ export default function NoteEditorScreen() {
   }>();
   const router = useRouter();
   const { session } = useAuth();
+  const { markProtected, needsUnlock } = useNotebookLock();
   const isNew = id === 'new';
 
   const [title, setTitle] = useState('');
@@ -44,12 +47,15 @@ export default function NoteEditorScreen() {
   const [saving, setSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedSectionId, setSelectedSectionId] = useState<string | undefined>(routeSectionId);
+  const [activeNotebookId, setActiveNotebookId] = useState(routeNotebookId);
   const [notebookTitle, setNotebookTitle] = useState(routeNotebookTitle?.trim() ?? '');
   const [sectionTitle, setSectionTitle] = useState(routeSectionTitle?.trim() ?? '');
 
+  const locked = needsUnlock(activeNotebookId);
+
   useEffect(() => {
-    if (isNew || !id || !session?.token) {
-      setLoading(false);
+    if (isNew || !id || !session?.token || locked) {
+      if (isNew || locked) setLoading(false);
       return;
     }
 
@@ -58,18 +64,27 @@ export default function NoteEditorScreen() {
         setTitle(data.title ?? '');
         setContent(data.content ?? '');
         setSelectedSectionId(data.section_id);
+        if (data.notebook_id) {
+          setActiveNotebookId(data.notebook_id);
+        }
         setNotebookTitle(data.notebook_title ?? '');
         setSectionTitle(data.section_title ?? '');
         setLoading(false);
       })
       .catch((err) => {
+        if (isNotebookLockedError(err) && (activeNotebookId || routeNotebookId)) {
+          markProtected(activeNotebookId || routeNotebookId || '', true);
+          setLoading(false);
+          return;
+        }
         Alert.alert('Not bulunamadı', err instanceof Error ? err.message : 'Erişim yok.');
         router.back();
       });
-  }, [id, isNew, router, session?.token]);
+  }, [activeNotebookId, id, isNew, locked, markProtected, routeNotebookId, router, session?.token]);
 
   function handleLocationSelect(notebook: Notebook, section: Section) {
     setSelectedSectionId(section.id);
+    setActiveNotebookId(notebook.id);
     setNotebookTitle(notebook.title);
     setSectionTitle(section.title);
     setPickerOpen(false);
@@ -87,7 +102,7 @@ export default function NoteEditorScreen() {
       if (isNew) {
         await createNote(session.token, title.trim(), content.trim(), {
           sectionId: selectedSectionId,
-          notebookId: routeNotebookId,
+          notebookId: activeNotebookId,
         });
       } else if (id) {
         await updateNote(session.token, id, title.trim(), content.trim(), selectedSectionId);
@@ -127,6 +142,10 @@ export default function NoteEditorScreen() {
         : 'Otomatik yerleştirilecek';
 
   return (
+    <NotebookSessionGate
+      notebookId={activeNotebookId}
+      title={notebookTitle || 'Not defteri'}
+      onCancelUnlock={() => router.back()}>
     <View style={styles.container}>
       <Stack.Screen options={{ title: isNew ? 'Yeni not' : 'Notu düzenle' }} />
       <KeyboardAvoidingView
@@ -187,6 +206,7 @@ export default function NoteEditorScreen() {
         />
       ) : null}
     </View>
+    </NotebookSessionGate>
   );
 }
 

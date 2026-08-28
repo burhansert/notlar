@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 
 import { NotebookCard } from '@/components/NotebookCard';
+import { NotebookPasswordModal, type NotebookPasswordMode } from '@/components/NotebookPasswordModal';
 import { ActionMenuModal, ConfirmModal, EmptyState, PromptModal } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
 import { createNotebook, deleteNotebook, listNotebooks, updateNotebook } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useNotebookLock } from '@/lib/notebookLock';
 import type { Notebook } from '@/lib/types';
 
 export default function NotebooksScreen() {
@@ -31,6 +33,12 @@ export default function NotebooksScreen() {
   const [menuTarget, setMenuTarget] = useState<Notebook | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Notebook | null>(null);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const [passwordTarget, setPasswordTarget] = useState<Notebook | null>(null);
+  const [passwordMode, setPasswordMode] = useState<NotebookPasswordMode>('unlock');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const notebookLock = useNotebookLock();
+  const { syncNotebooks, needsUnlock, unlock, setPassword, removePassword } = notebookLock;
 
   const load = useCallback(async () => {
     if (!session?.token) {
@@ -42,12 +50,13 @@ export default function NotebooksScreen() {
     try {
       const data = await listNotebooks(session.token);
       setNotebooks(data ?? []);
+      notebookLock.syncNotebooks(data ?? []);
     } catch {
       setNotebooks([]);
     }
     setLoading(false);
     setRefreshing(false);
-  }, [session?.token]);
+  }, [session?.token, syncNotebooks]);
 
   useFocusEffect(
     useCallback(() => {
@@ -84,8 +93,50 @@ export default function NotebooksScreen() {
     }
   }
 
+  function openNotebook(notebook: Notebook) {
+    if (notebook.is_locked && needsUnlock(notebook.id)) {
+      setPasswordError(null);
+      setPasswordMode('unlock');
+      setPasswordTarget(notebook);
+      return;
+    }
+    router.push(`/notebook/${notebook.id}?title=${encodeURIComponent(notebook.title)}` as Href);
+  }
+
   function openMenu(notebook: Notebook) {
     setMenuTarget(notebook);
+  }
+
+  function openPassword(notebook: Notebook, mode: NotebookPasswordMode) {
+    setPasswordError(null);
+    setPasswordMode(mode);
+    setPasswordTarget(notebook);
+  }
+
+  async function handlePasswordConfirm(password: string, currentPassword?: string) {
+    if (!passwordTarget) return;
+    const target = passwordTarget;
+    setPasswordLoading(true);
+    setPasswordError(null);
+    try {
+      if (passwordMode === 'unlock') {
+        await unlock(target.id, password);
+        setPasswordTarget(null);
+        router.push(`/notebook/${target.id}?title=${encodeURIComponent(target.title)}` as Href);
+      } else if (passwordMode === 'remove') {
+        await removePassword(target.id, currentPassword ?? password);
+        setPasswordTarget(null);
+        load();
+      } else {
+        await setPassword(target.id, password, currentPassword);
+        setPasswordTarget(null);
+        load();
+      }
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'İşlem başarısız.');
+    } finally {
+      setPasswordLoading(false);
+    }
   }
 
   function openFabMenu() {
@@ -148,11 +199,7 @@ export default function NotebooksScreen() {
           renderItem={({ item }) => (
             <NotebookCard
               notebook={item}
-              onPress={() =>
-                router.push(
-                  `/notebook/${item.id}?title=${encodeURIComponent(item.title)}` as Href
-                )
-              }
+              onPress={() => openNotebook(item)}
               onMenuPress={() => openMenu(item)}
             />
           )}
@@ -208,6 +255,29 @@ export default function NotebooksScreen() {
               if (menuTarget) setEditTarget(menuTarget);
             },
           },
+          menuTarget?.is_locked
+            ? {
+                label: 'Şifreyi değiştir',
+                onPress: () => {
+                  if (menuTarget) openPassword(menuTarget, 'change');
+                },
+              }
+            : {
+                label: 'Şifre koy',
+                onPress: () => {
+                  if (menuTarget) openPassword(menuTarget, 'set');
+                },
+              },
+          ...(menuTarget?.is_locked
+            ? [
+                {
+                  label: 'Kilidi kaldır',
+                  onPress: () => {
+                    if (menuTarget) openPassword(menuTarget, 'remove');
+                  },
+                },
+              ]
+            : []),
           {
             label: 'Sil',
             destructive: true,
@@ -225,6 +295,18 @@ export default function NotebooksScreen() {
         destructive
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
+      />
+      <NotebookPasswordModal
+        visible={Boolean(passwordTarget)}
+        mode={passwordMode}
+        title={passwordTarget?.title}
+        loading={passwordLoading}
+        error={passwordError}
+        onCancel={() => {
+          setPasswordTarget(null);
+          setPasswordError(null);
+        }}
+        onConfirm={handlePasswordConfirm}
       />
     </View>
   );

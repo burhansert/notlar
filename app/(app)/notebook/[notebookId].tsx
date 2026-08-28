@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,18 +13,21 @@ import {
 } from 'react-native';
 
 import { HeaderBackButton } from '@/components/HeaderBackButton';
+import { NotebookSessionGate } from '@/components/NotebookSessionGate';
 import { SectionCard } from '@/components/SectionCard';
 import { NotebookSectionPicker } from '@/components/NotebookSectionPicker';
 import { ActionMenuModal, ConfirmModal, EmptyState, PromptModal } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
 import { createSection, deleteSection, listSections, updateSection } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { isNotebookLockedError, useNotebookLock } from '@/lib/notebookLock';
 import type { Notebook, Section } from '@/lib/types';
 
 export default function SectionsScreen() {
   const { notebookId, title } = useLocalSearchParams<{ notebookId: string; title?: string }>();
   const router = useRouter();
   const { session } = useAuth();
+  const { markProtected, needsUnlock } = useNotebookLock();
   const [sections, setSections] = useState<Section[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -48,18 +51,19 @@ export default function SectionsScreen() {
     try {
       const data = await listSections(session.token, notebookId);
       setSections(data ?? []);
-    } catch {
+    } catch (err) {
+      if (isNotebookLockedError(err)) markProtected(notebookId, true);
       setSections([]);
     }
     setLoading(false);
     setRefreshing(false);
-  }, [notebookId, session?.token]);
+  }, [markProtected, notebookId, session?.token]);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  const locked = needsUnlock(notebookId);
+
+  useEffect(() => {
+    if (!locked) load();
+  }, [load, locked]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -123,7 +127,11 @@ export default function SectionsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <NotebookSessionGate
+      notebookId={notebookId}
+      title={notebookTitle}
+      onCancelUnlock={() => router.back()}>
+      <View style={styles.container}>
       <Stack.Screen
         options={{
           title: notebookTitle,
@@ -267,7 +275,8 @@ export default function SectionsScreen() {
           onCancel={() => setMoveTarget(null)}
         />
       ) : null}
-    </View>
+      </View>
+    </NotebookSessionGate>
   );
 }
 

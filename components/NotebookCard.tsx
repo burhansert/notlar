@@ -23,13 +23,18 @@ export function NotebookCard({
         onPress={onPress}
         style={({ pressed }) => [styles.main, { opacity: pressed ? 0.85 : 1 }]}>
         <View style={styles.iconWrap}>
-          <Ionicons name="book-outline" size={22} color={colors.forest} />
+          <Ionicons
+            name={notebook.is_locked ? 'lock-closed-outline' : 'book-outline'}
+            size={22}
+            color={colors.forest}
+          />
         </View>
         <View style={styles.body}>
           <Text style={styles.title} numberOfLines={1}>
             {notebook.title.trim() || 'Başlıksız not defteri'}
           </Text>
           <Text style={styles.meta}>
+            {notebook.is_locked ? 'Kilitli · ' : ''}
             {sectionCountLabel(sections)} · {noteCountLabel(notes)}
           </Text>
           <Text style={styles.date}>{formatDateTime(notebook.updated_at)}</Text>

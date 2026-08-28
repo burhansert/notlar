@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { HeaderBackButton } from '@/components/HeaderBackButton';
+import { NotebookSessionGate } from '@/components/NotebookSessionGate';
 import { NotePagePager } from '@/components/NotePagePager';
 import { colors, spacing } from '@/constants/theme';
 import { getNote } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { isNotebookLockedError, useNotebookLock } from '@/lib/notebookLock';
 import type { Note } from '@/lib/types';
 
 export default function NotePageViewScreen() {
@@ -19,13 +21,15 @@ export default function NotePageViewScreen() {
   }>();
   const router = useRouter();
   const { session } = useAuth();
+  const { markProtected, needsUnlock } = useNotebookLock();
+  const locked = needsUnlock(notebookId);
 
   const [note, setNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!session?.token || !id) {
-      setNote(null);
+    if (!session?.token || !id || locked) {
+      setNote((current) => current);
       setLoading(false);
       return;
     }
@@ -33,63 +37,72 @@ export default function NotePageViewScreen() {
     try {
       const data = await getNote(session.token, id);
       setNote(data);
-    } catch {
-      setNote(null);
+    } catch (err) {
+      if (isNotebookLockedError(err) && notebookId) markProtected(notebookId, true);
+      else setNote(null);
     }
 
     setLoading(false);
-  }, [id, session?.token]);
+  }, [id, locked, markProtected, notebookId, session?.token]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  let content;
   if (loading) {
-    return (
+    content = (
       <View style={styles.center}>
         <Stack.Screen options={{ title: 'Sayfa görünümü' }} />
         <ActivityIndicator color={colors.forest} size="large" />
       </View>
     );
-  }
-
-  if (!note) {
-    return (
+  } else if (!note) {
+    content = (
       <View style={styles.center}>
         <Stack.Screen options={{ title: 'Sayfa görünümü' }} />
         <Text style={styles.empty}>Not bulunamadı.</Text>
       </View>
     );
+  } else {
+    content = (
+      <View style={styles.container}>
+        <Stack.Screen
+          options={{
+            title: note.title.trim() || 'Başlıksız not',
+            headerLeft: () => (
+              <HeaderBackButton
+                fallbackHref={
+                  sectionId && notebookId
+                    ? (`/notebook/${notebookId}/${sectionId}?notebookTitle=${encodeURIComponent(
+                        notebookTitle?.trim() || 'Not defteri'
+                      )}` as Href)
+                    : ('/(app)/(tabs)' as Href)
+                }
+              />
+            ),
+            headerRight: () => (
+              <Pressable
+                onPress={() => router.push(`/note/${note.id}` as Href)}
+                hitSlop={12}
+                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1, marginRight: 4 }]}>
+                <Ionicons name="create-outline" size={22} color={colors.forest} />
+              </Pressable>
+            ),
+          }}
+        />
+        <NotePagePager note={note} />
+      </View>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: note.title.trim() || 'Başlıksız not',
-          headerLeft: () => (
-            <HeaderBackButton
-              fallbackHref={
-                sectionId && notebookId
-                  ? (`/notebook/${notebookId}/${sectionId}?notebookTitle=${encodeURIComponent(
-                      notebookTitle?.trim() || 'Not defteri'
-                    )}` as Href)
-                  : ('/(app)/(tabs)' as Href)
-              }
-            />
-          ),
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push(`/note/${note.id}` as Href)}
-              hitSlop={12}
-              style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1, marginRight: 4 }]}>
-              <Ionicons name="create-outline" size={22} color={colors.forest} />
-            </Pressable>
-          ),
-        }}
-      />
-      <NotePagePager note={note} />
-    </View>
+    <NotebookSessionGate
+      notebookId={notebookId}
+      title={notebookTitle?.trim() || 'Not defteri'}
+      onCancelUnlock={() => router.back()}>
+      {content}
+    </NotebookSessionGate>
   );
 }
 
