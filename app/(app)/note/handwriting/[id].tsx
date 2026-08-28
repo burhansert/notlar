@@ -108,7 +108,7 @@ export default function NoteHandwritingViewScreen() {
             headerRight: () => <NotebookLockCountdown notebookId={activeNotebookId} />,
           }}
         />
-        <HandwritingNotePager note={note} glyphMap={glyphMap} />
+        <HandwritingNotePager note={note} glyphMap={glyphMap} notebookId={activeNotebookId} />
       </View>
     );
   }

@@ -19,6 +19,7 @@ import {
 } from '@/components/NotePageContent';
 import { colors, spacing } from '@/constants/theme';
 import { formatDateTime } from '@/lib/format';
+import { useNotebookLock } from '@/lib/notebookLock';
 import {
   DEFAULT_TITLE_HEADER_HEIGHT,
   paginateContent,
@@ -39,9 +40,12 @@ const WEB_NO_SELECT =
 
 type Props = {
   note: Note;
+  notebookId?: string;
 };
 
-export function NotePagePager({ note }: Props) {
+export function NotePagePager({ note, notebookId }: Props) {
+  const { touch } = useNotebookLock();
+  const activeNotebookId = notebookId ?? note.notebook_id;
   const { width, height } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const scrollXRef = useRef(0);
@@ -89,6 +93,7 @@ export function NotePagePager({ note }: Props) {
 
   useEffect(() => {
     setMeasuredPages(null);
+    currentPageRef.current = 0;
     setCurrentPage(0);
     scrollXRef.current = 0;
     scrollRef.current?.scrollTo({ x: 0, animated: false });
@@ -132,7 +137,7 @@ export function NotePagePager({ note }: Props) {
       targetPage = Math.min(pageCount - 1, Math.max(0, targetPage));
       scrollRef.current?.scrollTo({ x: targetPage * pageWidth, animated: true });
       scrollXRef.current = targetPage * pageWidth;
-      setCurrentPage(targetPage);
+      commitPage(targetPage);
     }
 
     window.addEventListener('mousemove', onMouseMove);
@@ -185,12 +190,22 @@ export function NotePagePager({ note }: Props) {
     setMeasuredPages(grouped);
   }
 
+  function commitPage(nextPage: number) {
+    if (nextPage === currentPageRef.current) return;
+    touch(activeNotebookId);
+    currentPageRef.current = nextPage;
+    setCurrentPage(nextPage);
+  }
+
   function syncPageFromOffset(offsetX: number) {
     const pageCount = pagesRef.current.length;
     if (!pageCount) return;
     const pageWidth = widthRef.current;
     const nextPage = Math.min(pageCount - 1, Math.max(0, Math.round(offsetX / pageWidth)));
-    setCurrentPage((prev) => (prev === nextPage ? prev : nextPage));
+    if (nextPage === currentPageRef.current) return;
+    touch(activeNotebookId);
+    currentPageRef.current = nextPage;
+    setCurrentPage(nextPage);
   }
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -208,7 +223,7 @@ export function NotePagePager({ note }: Props) {
       );
       scrollRef.current?.scrollTo({ x: nextPage * width, animated: true });
       scrollXRef.current = nextPage * width;
-      setCurrentPage(nextPage);
+      commitPage(nextPage);
       return;
     }
     syncPageFromOffset(event.nativeEvent.contentOffset.x);
@@ -219,7 +234,7 @@ export function NotePagePager({ note }: Props) {
     const offsetX = nextPage * width;
     scrollRef.current?.scrollTo({ x: offsetX, animated: true });
     scrollXRef.current = offsetX;
-    setCurrentPage(nextPage);
+    commitPage(nextPage);
   }
 
   function handleMouseDown(event: NativeSyntheticEvent<MouseEvent>) {

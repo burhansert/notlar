@@ -22,6 +22,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { getHandwritingGlyphSize, setHandwritingGlyphSize } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime } from '@/lib/format';
+import { useNotebookLock } from '@/lib/notebookLock';
 import {
   handwritingPageLayoutMetrics,
   paginateHandwritingContent,
@@ -44,6 +45,7 @@ const WEB_NO_SELECT =
 type Props = {
   note: Note;
   glyphMap: Map<HandwritingCharacter, Stroke[]>;
+  notebookId?: string;
 };
 
 function HandwritingPageContent({
@@ -97,8 +99,10 @@ function HandwritingHeaderMeasure({
   );
 }
 
-export function HandwritingNotePager({ note, glyphMap }: Props) {
+export function HandwritingNotePager({ note, glyphMap, notebookId }: Props) {
   const { session } = useAuth();
+  const { touch } = useNotebookLock();
+  const activeNotebookId = notebookId ?? note.notebook_id;
   const { width, height } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const scrollXRef = useRef(0);
@@ -210,6 +214,7 @@ export function HandwritingNotePager({ note, glyphMap }: Props) {
   currentPageRef.current = currentPage;
 
   useEffect(() => {
+    currentPageRef.current = 0;
     setCurrentPage(0);
     scrollXRef.current = 0;
     scrollRef.current?.scrollTo({ x: 0, animated: false });
@@ -253,7 +258,7 @@ export function HandwritingNotePager({ note, glyphMap }: Props) {
       targetPage = Math.min(pageCount - 1, Math.max(0, targetPage));
       scrollRef.current?.scrollTo({ x: targetPage * pageWidth, animated: true });
       scrollXRef.current = targetPage * pageWidth;
-      setCurrentPage(targetPage);
+      commitPage(targetPage);
     }
 
     window.addEventListener('mousemove', onMouseMove);
@@ -293,12 +298,22 @@ export function HandwritingNotePager({ note, glyphMap }: Props) {
     }
   }
 
+  function commitPage(nextPage: number) {
+    if (nextPage === currentPageRef.current) return;
+    touch(activeNotebookId);
+    currentPageRef.current = nextPage;
+    setCurrentPage(nextPage);
+  }
+
   function syncPageFromOffset(offsetX: number) {
     const pageCount = pagesRef.current.length;
     if (!pageCount) return;
     const pageWidth = widthRef.current;
     const nextPage = Math.min(pageCount - 1, Math.max(0, Math.round(offsetX / pageWidth)));
-    setCurrentPage((prev) => (prev === nextPage ? prev : nextPage));
+    if (nextPage === currentPageRef.current) return;
+    touch(activeNotebookId);
+    currentPageRef.current = nextPage;
+    setCurrentPage(nextPage);
   }
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -316,7 +331,7 @@ export function HandwritingNotePager({ note, glyphMap }: Props) {
       );
       scrollRef.current?.scrollTo({ x: nextPage * width, animated: true });
       scrollXRef.current = nextPage * width;
-      setCurrentPage(nextPage);
+      commitPage(nextPage);
       return;
     }
     syncPageFromOffset(event.nativeEvent.contentOffset.x);
@@ -327,7 +342,7 @@ export function HandwritingNotePager({ note, glyphMap }: Props) {
     const offsetX = nextPage * width;
     scrollRef.current?.scrollTo({ x: offsetX, animated: true });
     scrollXRef.current = offsetX;
-    setCurrentPage(nextPage);
+    commitPage(nextPage);
   }
 
   function handleMouseDown(event: NativeSyntheticEvent<MouseEvent>) {

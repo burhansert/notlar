@@ -114,7 +114,7 @@ export default function NotePageViewScreen() {
             },
           }}
         />
-        <NotePagePager note={note} />
+        <NotePagePager note={note} notebookId={activeNotebookId} />
       </View>
     );
   }
