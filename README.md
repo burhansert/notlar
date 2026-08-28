@@ -7,7 +7,7 @@ E-posta ve şifre ile giriş yapılan not uygulaması. **Supabase Auth kullanıl
 - E-posta + şifre ile kayıt ve giriş (`users` tablosu)
 - Kişisel not oluşturma, düzenleme, silme ve arama
 - İlk kayıt olan kullanıcı otomatik yönetici olur
-- Yönetici paneli: kullanıcılar, roller, hesap durdurma, tüm notlar
+- Yönetici paneli: kullanıcılar, roller, hesap durdurma
 
 ## Kurulum
 

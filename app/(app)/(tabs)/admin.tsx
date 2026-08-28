@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter, type Href } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,34 +11,24 @@ import {
   View,
 } from 'react-native';
 
-import { NoteCard } from '@/components/NoteCard';
 import { Badge, EmptyState } from '@/components/ui';
 import { colors, radius, spacing } from '@/constants/theme';
-import { adminDeleteNote, adminListNotes, adminListUsers, adminSetUser } from '@/lib/api';
+import { adminListUsers, adminSetUser } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime, noteCountLabel, notebookCountLabel } from '@/lib/format';
-import { noteAuthor, type Note, type ProfileWithNotes, type Role } from '@/lib/types';
-
-type TabKey = 'users' | 'notes';
+import { type ProfileWithNotes, type Role } from '@/lib/types';
 
 export default function AdminScreen() {
-  const router = useRouter();
   const { profile, session } = useAuth();
-  const [tab, setTab] = useState<TabKey>('users');
   const [users, setUsers] = useState<ProfileWithNotes[]>([]);
-  const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.token) return;
     try {
-      const [userRows, noteRows] = await Promise.all([
-        adminListUsers(session.token),
-        adminListNotes(session.token),
-      ]);
+      const userRows = await adminListUsers(session.token);
       setUsers(userRows ?? []);
-      setNotes(noteRows ?? []);
     } catch (err) {
       Alert.alert('Yüklenemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
     }
@@ -57,9 +47,9 @@ export default function AdminScreen() {
       users: users.length,
       admins: users.filter((user) => user.role === 'admin').length,
       notebooks: users.reduce((sum, user) => sum + (Number(user.notebook_count) || 0), 0),
-      notes: notes.length,
+      notes: users.reduce((sum, user) => sum + (Number(user.note_count) || 0), 0),
     }),
-    [users, notes]
+    [users]
   );
 
   async function updateUser(user: ProfileWithNotes, patch: { role?: Role; is_active?: boolean }) {
@@ -75,25 +65,6 @@ export default function AdminScreen() {
     } catch (err) {
       Alert.alert('Güncellenemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
     }
-  }
-
-  async function deleteNote(noteId: string) {
-    Alert.alert('Notu sil', 'Bu not kalıcı olarak silinecek.', [
-      { text: 'Vazgeç', style: 'cancel' },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: async () => {
-          if (!session?.token) return;
-          try {
-            await adminDeleteNote(session.token, noteId);
-            load();
-          } catch (err) {
-            Alert.alert('Silinemedi', err instanceof Error ? err.message : 'Bilinmeyen hata');
-          }
-        },
-      },
-    ]);
   }
 
   function confirmRole(user: ProfileWithNotes) {
@@ -131,14 +102,9 @@ export default function AdminScreen() {
         <Stat label="Not" value={stats.notes} />
       </View>
 
-      <View style={styles.tabs}>
-        <Segment label="Kullanıcılar" active={tab === 'users'} onPress={() => setTab('users')} />
-        <Segment label="Tüm notlar" active={tab === 'notes'} onPress={() => setTab('notes')} />
-      </View>
-
       {loading ? (
         <ActivityIndicator color={colors.forest} style={{ marginTop: 32 }} />
-      ) : tab === 'users' ? (
+      ) : (
         <FlatList
           data={users}
           keyExtractor={(item) => item.id}
@@ -184,36 +150,6 @@ export default function AdminScreen() {
             </View>
           )}
         />
-      ) : (
-        <FlatList
-          data={notes}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
-          }
-          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-          ListEmptyComponent={
-            <EmptyState icon="documents-outline" title="Not yok" subtitle="Henüz hiç not kaydedilmemiş." />
-          }
-          renderItem={({ item }) => {
-            const author = noteAuthor(item);
-            return (
-              <View style={styles.noteWrap}>
-                <NoteCard
-                  note={item}
-                  author={author}
-                  onPress={() => router.push(`/note/${item.id}` as Href)}
-                  onHandwritingPress={() => router.push(`/note/handwriting/${item.id}` as Href)}
-                  onViewPress={() => router.push(`/note/view/${item.id}` as Href)}
-                />
-                <Pressable onPress={() => deleteNote(item.id)} style={styles.deleteNote}>
-                  <Text style={styles.deleteNoteText}>Notu sil</Text>
-                </Pressable>
-              </View>
-            );
-          }}
-        />
       )}
     </View>
   );
@@ -225,22 +161,6 @@ function Stat({ label, value }: { label: string; value: number }) {
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
-  );
-}
-
-function Segment({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={[styles.segment, active && styles.segmentActive]}>
-      <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -270,23 +190,7 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 22, fontWeight: '800', color: colors.ink },
   statLabel: { color: colors.muted, fontWeight: '700', marginTop: 2 },
-  tabs: {
-    flexDirection: 'row',
-    margin: spacing.lg,
-    backgroundColor: colors.paperDark,
-    borderRadius: radius.md,
-    padding: 4,
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 12,
-  },
-  segmentActive: { backgroundColor: colors.card },
-  segmentText: { color: colors.muted, fontWeight: '700' },
-  segmentTextActive: { color: colors.ink },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: 40 },
+  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: 40 },
   userCard: {
     backgroundColor: colors.card,
     borderRadius: radius.md,
@@ -312,7 +216,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   miniText: { color: colors.forestDark, fontWeight: '800', fontSize: 13 },
-  noteWrap: { gap: 8 },
-  deleteNote: { alignSelf: 'flex-end', paddingHorizontal: 4, paddingVertical: 4 },
-  deleteNoteText: { color: colors.danger, fontWeight: '700' },
 });
