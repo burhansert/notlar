@@ -198,3 +198,14 @@ export function deleteHandwritingGlyph(token: string, letter: string) {
 
   return rpc<null>('delete_handwriting_glyph', { p_token: token, p_letter: resolved });
 }
+
+export function getHandwritingGlyphSize(token: string) {
+  return rpc<number>('get_handwriting_glyph_size', { p_token: token });
+}
+
+export function setHandwritingGlyphSize(token: string, glyphSize: number) {
+  return rpc<number>('set_handwriting_glyph_size', {
+    p_token: token,
+    p_glyph_size: glyphSize,
+  });
+}
