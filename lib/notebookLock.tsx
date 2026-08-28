@@ -16,15 +16,20 @@ import type { Notebook } from '@/lib/types';
 
 export const NOTEBOOK_IDLE_LOCK_MS = 2 * 60 * 1000;
 const TOUCH_THROTTLE_MS = 10 * 1000;
+const EXIT_LOCK_DELAY_MS = 280;
 
 type NotebookLockContextValue = {
   isProtected: (notebookId?: string | null) => boolean;
   isUnlocked: (notebookId?: string | null) => boolean;
   needsUnlock: (notebookId?: string | null) => boolean;
+  getRemainingLockMs: (notebookId?: string | null, now?: number) => number;
   syncNotebooks: (notebooks: Notebook[]) => void;
   markProtected: (notebookId: string, locked: boolean) => void;
   unlock: (notebookId: string, password: string) => Promise<void>;
   lock: (notebookId: string) => Promise<void>;
+  lockAllUnlocked: () => void;
+  enterSession: (notebookId?: string | null) => void;
+  leaveSession: (notebookId?: string | null) => void;
   touch: (notebookId?: string | null) => void;
   setPassword: (notebookId: string, newPassword: string, currentPassword?: string) => Promise<void>;
   removePassword: (notebookId: string, currentPassword: string) => Promise<void>;
@@ -45,6 +50,8 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
   const unlocksRef = useRef(unlocks);
   const lastTouchRef = useRef<Record<string, number>>({});
   const tokenRef = useRef(token);
+  const sessionCountsRef = useRef<Record<string, number>>({});
+  const leaveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   unlocksRef.current = unlocks;
   tokenRef.current = token;
@@ -104,6 +111,11 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const lock = useCallback(async (notebookId: string) => {
+    const leaveTimer = leaveTimersRef.current[notebookId];
+    if (leaveTimer) {
+      clearTimeout(leaveTimer);
+      delete leaveTimersRef.current[notebookId];
+    }
     setUnlocks((prev) => {
       if (!prev[notebookId]) return prev;
       const next = { ...prev };
@@ -119,6 +131,43 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
       // Yerel kilit yine de uygulanır.
     }
   }, []);
+
+  const lockAllUnlocked = useCallback(() => {
+    const now = Date.now();
+    Object.entries(unlocksRef.current).forEach(([id, lastActivity]) => {
+      if ((sessionCountsRef.current[id] ?? 0) > 0) return;
+      // Listeden şifre girilip deftere geçilirken odak kayması kilidi kapatmasın.
+      if (now - lastActivity < 800) return;
+      void lock(id);
+    });
+  }, [lock]);
+
+  const enterSession = useCallback((notebookId?: string | null) => {
+    if (!notebookId) return;
+    const leaveTimer = leaveTimersRef.current[notebookId];
+    if (leaveTimer) {
+      clearTimeout(leaveTimer);
+      delete leaveTimersRef.current[notebookId];
+    }
+    sessionCountsRef.current[notebookId] = (sessionCountsRef.current[notebookId] ?? 0) + 1;
+  }, []);
+
+  const leaveSession = useCallback(
+    (notebookId?: string | null) => {
+      if (!notebookId) return;
+      const next = Math.max(0, (sessionCountsRef.current[notebookId] ?? 1) - 1);
+      sessionCountsRef.current[notebookId] = next;
+      if (next > 0) return;
+      const leaveTimer = leaveTimersRef.current[notebookId];
+      if (leaveTimer) clearTimeout(leaveTimer);
+      leaveTimersRef.current[notebookId] = setTimeout(() => {
+        delete leaveTimersRef.current[notebookId];
+        if ((sessionCountsRef.current[notebookId] ?? 0) > 0) return;
+        void lock(notebookId);
+      }, EXIT_LOCK_DELAY_MS);
+    },
+    [lock]
+  );
 
   const unlock = useCallback(
     async (notebookId: string, password: string) => {
@@ -212,7 +261,16 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
     if (token) return;
     setUnlocks({});
     lastTouchRef.current = {};
+    sessionCountsRef.current = {};
+    Object.values(leaveTimersRef.current).forEach(clearTimeout);
+    leaveTimersRef.current = {};
   }, [token]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(leaveTimersRef.current).forEach(clearTimeout);
+    };
+  }, []);
 
   const isProtected = useCallback(
     (notebookId?: string | null) => Boolean(notebookId && protectedIds[notebookId]),
@@ -229,15 +287,29 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
     [isProtected, isUnlocked]
   );
 
+  const getRemainingLockMs = useCallback(
+    (notebookId?: string | null, now = Date.now()) => {
+      if (!notebookId) return 0;
+      const lastActivity = unlocks[notebookId];
+      if (!lastActivity) return 0;
+      return Math.max(0, NOTEBOOK_IDLE_LOCK_MS - (now - lastActivity));
+    },
+    [unlocks]
+  );
+
   const value = useMemo<NotebookLockContextValue>(
     () => ({
       isProtected,
       isUnlocked,
       needsUnlock,
+      getRemainingLockMs,
       syncNotebooks,
       markProtected,
       unlock,
       lock,
+      lockAllUnlocked,
+      enterSession,
+      leaveSession,
       touch,
       setPassword,
       removePassword,
@@ -246,10 +318,14 @@ export function NotebookLockProvider({ children }: { children: ReactNode }) {
       isProtected,
       isUnlocked,
       needsUnlock,
+      getRemainingLockMs,
       syncNotebooks,
       markProtected,
       unlock,
       lock,
+      lockAllUnlocked,
+      enterSession,
+      leaveSession,
       touch,
       setPassword,
       removePassword,

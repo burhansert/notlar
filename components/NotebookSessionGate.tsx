@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, type Href } from 'expo-router';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { NotebookPasswordModal } from '@/components/NotebookPasswordModal';
@@ -22,13 +22,21 @@ export function NotebookSessionGate({
   children: ReactNode;
 }) {
   const router = useRouter();
-  const { needsUnlock, touch, unlock, markProtected } = useNotebookLock();
+  const { needsUnlock, touch, unlock, markProtected, enterSession, leaveSession } = useNotebookLock();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const wasUnlockedRef = useRef(false);
   const locked = Boolean(notebookId) && needsUnlock(notebookId);
   const showModal = locked && !dismissed;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!notebookId) return undefined;
+      enterSession(notebookId);
+      return () => leaveSession(notebookId);
+    }, [enterSession, leaveSession, notebookId])
+  );
 
   useEffect(() => {
     setDismissed(false);

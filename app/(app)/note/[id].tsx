@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 
+import { NotebookLockCountdown } from '@/components/NotebookLockCountdown';
 import { NotebookSectionPicker } from '@/components/NotebookSectionPicker';
 import { NotebookSessionGate } from '@/components/NotebookSessionGate';
 import { Button } from '@/components/ui';
@@ -151,7 +152,12 @@ export default function NoteEditorScreen() {
       notebookId={activeNotebookId}
       title={notebookTitle || 'Not defteri'}>
     <View style={styles.container}>
-      <Stack.Screen options={{ title: isNew ? 'Yeni not' : 'Notu düzenle' }} />
+      <Stack.Screen
+        options={{
+          title: isNew ? 'Yeni not' : 'Notu düzenle',
+          headerRight: () => <NotebookLockCountdown notebookId={activeNotebookId} />,
+        }}
+      />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

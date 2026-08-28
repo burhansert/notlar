@@ -15,6 +15,7 @@ import {
 
 import { HeaderBackButton } from '@/components/HeaderBackButton';
 import { NoteCard } from '@/components/NoteCard';
+import { NotebookLockCountdown } from '@/components/NotebookLockCountdown';
 import { NotebookSessionGate } from '@/components/NotebookSessionGate';
 import { SectionCard } from '@/components/SectionCard';
 import { NotebookSectionPicker } from '@/components/NotebookSectionPicker';
@@ -180,6 +181,7 @@ export default function SectionsScreen() {
         options={{
           title: notebookTitle,
           headerLeft: () => <HeaderBackButton fallbackHref="/(tabs)" />,
+          headerRight: () => <NotebookLockCountdown notebookId={notebookId} />,
         }}
       />
       <View style={styles.search}>

@@ -13,6 +13,7 @@ import {
 
 import { HeaderBackButton } from '@/components/HeaderBackButton';
 import { NoteCard } from '@/components/NoteCard';
+import { NotebookLockCountdown } from '@/components/NotebookLockCountdown';
 import { NotebookSessionGate } from '@/components/NotebookSessionGate';
 import { EmptyState } from '@/components/ui';
 import { colors, radius, shadow, spacing } from '@/constants/theme';
@@ -85,6 +86,7 @@ export default function SectionNotesScreen() {
               }
             />
           ),
+          headerRight: () => <NotebookLockCountdown notebookId={notebookId} />,
         }}
       />
       <View style={styles.search}>

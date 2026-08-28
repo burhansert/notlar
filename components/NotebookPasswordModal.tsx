@@ -8,13 +8,8 @@ import { validatePassword } from '@/lib/credentials';
 
 const DISMISS_BLOCK_MS = 120;
 
-// Defter şifreleri tarayıcı/işletim sistemi şifre yöneticisine bağlanmamalı.
-// Aksi halde Chrome eşleşen bir "kullanıcı adı" alanı arayıp sayfadaki arama
-// kutusunu e-posta ile doldurur ve arkadaki liste filtrelenip boşalır.
-const noAutofillProps = {
-  autoComplete: 'off',
-  textContentType: 'none',
-  importantForAutofill: 'no',
+const passwordFieldProps = {
+  preventPasswordManager: true,
 } as const;
 
 export type NotebookPasswordMode = 'unlock' | 'set' | 'change' | 'remove';
@@ -80,7 +75,9 @@ export function NotebookPasswordModal({
         setLocalError(message);
         return;
       }
-      onConfirm(password);
+      const next = password;
+      setPassword('');
+      onConfirm(next);
       return;
     }
 
@@ -90,7 +87,9 @@ export function NotebookPasswordModal({
         setLocalError(message);
         return;
       }
-      onConfirm('', current);
+      const next = current;
+      setCurrent('');
+      onConfirm('', next);
       return;
     }
 
@@ -111,7 +110,12 @@ export function NotebookPasswordModal({
       setLocalError('Şifreler eşleşmiyor.');
       return;
     }
-    onConfirm(password, mode === 'change' ? current : undefined);
+    const nextPassword = password;
+    const nextCurrent = mode === 'change' ? current : undefined;
+    setPassword('');
+    setConfirm('');
+    setCurrent('');
+    onConfirm(nextPassword, nextCurrent);
   }
 
   return (
@@ -146,7 +150,7 @@ export function NotebookPasswordModal({
               }}
               placeholder="Mevcut şifre"
               secureTextEntry
-              {...noAutofillProps}
+              {...passwordFieldProps}
             />
           ) : null}
           {mode === 'remove' ? null : (
@@ -159,7 +163,7 @@ export function NotebookPasswordModal({
               }}
               placeholder="En az 6 karakter"
               secureTextEntry
-              {...noAutofillProps}
+              {...passwordFieldProps}
             />
           )}
           {mode === 'set' || mode === 'change' ? (
@@ -172,7 +176,7 @@ export function NotebookPasswordModal({
               }}
               placeholder="Şifreyi tekrar yazın"
               secureTextEntry
-              {...noAutofillProps}
+              {...passwordFieldProps}
             />
           ) : null}
           {localError || error ? <Text style={styles.error}>{localError || error}</Text> : null}

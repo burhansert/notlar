@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -70,9 +71,20 @@ export function Input({
   label,
   error,
   secureTextEntry,
+  preventPasswordManager,
+  style,
   ...props
-}: TextInputProps & { label: string; error?: string | null }) {
+}: TextInputProps & {
+  label: string;
+  error?: string | null;
+  preventPasswordManager?: boolean;
+}) {
   const [hidden, setHidden] = useState(Boolean(secureTextEntry));
+  const useNativeSecret = Boolean(secureTextEntry) && !(preventPasswordManager && Platform.OS === 'web');
+  const webMaskStyle =
+    preventPasswordManager && Platform.OS === 'web' && hidden
+      ? ({ WebkitTextSecurity: 'disc' } as const)
+      : undefined;
 
   return (
     <View style={styles.inputWrap}>
@@ -80,11 +92,29 @@ export function Input({
       <View style={[styles.inputRow, error ? styles.inputRowError : null]}>
         <TextInput
           placeholderTextColor={colors.muted}
-          style={styles.input}
           autoCapitalize="none"
           autoCorrect={false}
-          secureTextEntry={secureTextEntry ? hidden : false}
+          spellCheck={false}
+          secureTextEntry={useNativeSecret ? hidden : false}
+          {...(preventPasswordManager
+            ? ({
+                autoComplete: 'one-time-code',
+                textContentType: 'oneTimeCode',
+                importantForAutofill: 'no',
+                ...(Platform.OS === 'web'
+                  ? {
+                      dataSet: {
+                        lpignore: 'true',
+                        '1p-ignore': 'true',
+                        bwignore: 'true',
+                        formType: 'other',
+                      },
+                    }
+                  : null),
+              } as TextInputProps)
+            : null)}
           {...props}
+          style={[styles.input, webMaskStyle as TextInputProps['style'], style]}
         />
         {secureTextEntry ? (
           <Pressable onPress={() => setHidden((value) => !value)} hitSlop={8}>

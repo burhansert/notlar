@@ -51,7 +51,7 @@ export default function NotebooksScreen() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const notebookLock = useNotebookLock();
-  const { syncNotebooks, isUnlocked, unlock, setPassword, removePassword } = notebookLock;
+  const { syncNotebooks, isUnlocked, unlock, setPassword, removePassword, lockAllUnlocked } = notebookLock;
   const suppressNotebookOpenUntilRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -80,8 +80,9 @@ export default function NotebooksScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      lockAllUnlocked();
       load();
-    }, [load])
+    }, [load, lockAllUnlocked])
   );
 
   const listItems = useMemo(() => {
