@@ -152,8 +152,7 @@ export default function NoteEditorScreen() {
   return (
     <NotebookSessionGate
       notebookId={activeNotebookId}
-      title={notebookTitle || 'Not defteri'}
-      onCancelUnlock={() => router.back()}>
+      title={notebookTitle || 'Not defteri'}>
     <View style={styles.container}>
       <Stack.Screen options={{ title: isNew ? 'Yeni not' : 'Notu düzenle' }} />
       <KeyboardAvoidingView

@@ -73,8 +73,7 @@ export default function SectionNotesScreen() {
   return (
     <NotebookSessionGate
       notebookId={notebookId}
-      title={notebookTitle?.trim() || 'Not defteri'}
-      onCancelUnlock={() => router.back()}>
+      title={notebookTitle?.trim() || 'Not defteri'}>
     <View style={styles.container}>
       <Stack.Screen
         options={{

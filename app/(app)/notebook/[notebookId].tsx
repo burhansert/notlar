@@ -174,10 +174,7 @@ export default function SectionsScreen() {
   }
 
   return (
-    <NotebookSessionGate
-      notebookId={notebookId}
-      title={notebookTitle}
-      onCancelUnlock={() => router.back()}>
+    <NotebookSessionGate notebookId={notebookId} title={notebookTitle}>
       <View style={styles.container}>
       <Stack.Screen
         options={{

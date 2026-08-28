@@ -50,6 +50,11 @@ export function NotebookPasswordModal({
   const confirmLabel =
     mode === 'unlock' ? 'Aç' : mode === 'remove' ? 'Kaldır' : 'Kaydet';
 
+  function dismiss() {
+    // Web'de modal kapanırken aynı tıklama alttaki öğeye geçmesin diye bir sonraki kareye ertelenir.
+    setTimeout(onCancel, 0);
+  }
+
   function submit() {
     if (mode === 'unlock') {
       const message = validatePassword(password);
@@ -92,8 +97,8 @@ export function NotebookPasswordModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={styles.backdrop} onPress={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss}>
+      <Pressable style={styles.backdrop} onPress={dismiss}>
         <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
           <View style={styles.iconWrap}>
             <Ionicons
@@ -155,7 +160,7 @@ export function NotebookPasswordModal({
           {localError || error ? <Text style={styles.error}>{localError || error}</Text> : null}
           <View style={styles.actions}>
             <View style={styles.action}>
-              <Button label="Vazgeç" variant="ghost" onPress={onCancel} disabled={loading} />
+              <Button label="Vazgeç" variant="ghost" onPress={dismiss} disabled={loading} />
             </View>
             <View style={styles.action}>
               {loading ? (

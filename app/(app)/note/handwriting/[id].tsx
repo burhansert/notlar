@@ -102,8 +102,7 @@ export default function NoteHandwritingViewScreen() {
   return (
     <NotebookSessionGate
       notebookId={notebookId}
-      title={notebookTitle?.trim() || 'Not defteri'}
-      onCancelUnlock={() => router.back()}>
+      title={notebookTitle?.trim() || 'Not defteri'}>
       {content}
     </NotebookSessionGate>
   );
